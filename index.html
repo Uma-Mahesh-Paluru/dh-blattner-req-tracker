@@ -230,7 +230,7 @@ tr.ovd-row td{background:#fff5f5}tr.ovd-row:hover td{background:var(--dbg)}
   apiKey: "AIza...",
   authDomain: "dh-blattner-tracker.firebaseapp.com",
   databaseURL: "https://dh-blattner-tracker-default-rtdb.firebaseio.com",
-  projectId: "ejde-tracker",
+  projectId: "dh-blattner-tracker",
   storageBucket: "ejde-tracker.appspot.com",
   messagingSenderId: "123456789",
   appId: "1:123:web:abc"
@@ -710,7 +710,7 @@ function saveBudget(trade) {
   if (!inp) return;
   const val = parseFloat(inp.value) || 0;
   db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(val);
-  showToast('Budget saved for ' + trade);
+  toast('Budget saved for ' + trade);
 }
 function saveSelectedBudget() {
   const tradeEl = document.getElementById('budgetTradeSelect');
@@ -718,11 +718,11 @@ function saveSelectedBudget() {
   if (!tradeEl || !amtEl) return;
   const trade = tradeEl.value;
   const amt = parseFloat(amtEl.value) || 0;
-  if (!trade) { showToast('Please select a trade first'); return; }
-  if (!amt) { showToast('Please enter a budget amount'); return; }
+  if (!trade) { toast('Please select a trade first'); return; }
+  if (!amt) { toast('Please enter a budget amount'); return; }
   db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(amt);
   amtEl.value = '';
-  showToast('Budget saved: ' + trade + ' = $' + amt.toLocaleString());
+  toast('Budget saved: ' + trade + ' = $' + amt.toLocaleString());
 }
 
 function renderBudgetPanel() {
@@ -978,10 +978,10 @@ function addTrade() {
   if (!inp) return;
   const name = inp.value.trim();
   if (!name) return;
-  if (tradeOptions.includes(name)) { showToast('Trade already exists'); return; }
+  if (tradeOptions.includes(name)) { toast('Trade already exists'); return; }
   db.ref('trades').push(name);
   inp.value = '';
-  showToast('Trade added: ' + name);
+  toast('Trade added: ' + name);
 }
 
 function deleteTrade(name) {
@@ -1450,6 +1450,6 @@ function sendOverdueDigest(){
     if(!d.required_date||['Received','Cancelled'].includes(d.status))return false;
     return d.required_date<today();
   });
-  if(overdue.length===0){showToast('No overdue items!');return;}
+  if(overdue.length===0){toast('No overdue items!');return;}
   const lines=overdue.map(d=>`  - REQ #${d.req_num||d._key} | ${d.desc1||'N/A'} | Qty: ${d.qty||''} | REQ Date: ${d.required_date||''} | Status: ${d.status||''}`).join('\n');
- 
+                                                                    
