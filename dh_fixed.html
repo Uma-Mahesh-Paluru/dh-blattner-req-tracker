@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D.H. Blattner &amp; Sons REQ Tracker</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--border:#e2e6ea;--primary:#7A003C;--pl:#f5e6ec;--text:#1f2937;--muted:#6b7280;--success:#059669;--sbg:#d1fae5;--warn:#d97706;--wbg:#fef3c7;--danger:#dc2626;--dbg:#fee2e2;--info:#0284c7;--ibg:#e0f2fe;--purple:#7c3aed;--pbg:#ede9fe;--r:8px;--sh:0 1px 3px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.app{max-width:1440px;margin:0 auto;padding:16px}
+
+/* Setup overlay */
+#setup{position:fixed;inset:0;background:rgba(15,23,42,.92);z-index:9999;display:flex;align-items:center;justify-content:center}
+#setup.hidden{display:none}
+.setup-box{background:#fff;border-radius:12px;padding:32px;width:560px;max-width:96vw;max-height:96vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.4)}
+.setup-box h2{font-size:20px;font-weight:800;color:#1a3a6b;margin-bottom:6px}
+.setup-box .sub{color:#6b7280;font-size:13px;margin-bottom:20px;line-height:1.5}
+.step{background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#1a56db;color:#fff;border-radius:50%;font-size:11px;font-weight:700;margin-right:8px;flex-shrink:0}
+.step-title{font-weight:700;font-size:13px;color:#1f2937;display:flex;align-items:center;margin-bottom:6px}
+.step p{font-size:12px;color:#6b7280;line-height:1.6;margin-bottom:6px}
+.step a{color:#1a56db;font-weight:600}
+.step code{background:#e8f0fe;color:#1a56db;padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
+.config-input{width:100%;padding:8px 10px;border:1px solid #e2e6ea;border-radius:6px;font-size:12px;font-family:monospace;margin-top:8px;outline:none;background:#fafafa}
+.config-input:focus{border-color:#1a56db;background:#fff}
+.btn-setup{width:100%;padding:12px;background:#1a56db;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
+.btn-setup:hover{background:#1547c0}
+.setup-error{background:#fee2e2;color:#dc2626;padding:8px 12px;border-radius:6px;font-size:12px;margin-top:8px;display:none}
+.team-row{display:flex;gap:8px;margin-bottom:8px}
+.team-row input{flex:1;padding:7px 10px;border:1px solid #e2e6ea;border-radius:6px;font-size:13px;outline:none}
+.team-row input:focus{border-color:#1a56db}
+.btn-add-team{padding:7px 12px;background:#e8f0fe;color:#1a56db;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* Header */
+.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.header-left h1{font-size:20px;font-weight:700}
+.header-left p{color:var(--muted);font-size:13px;margin-top:2px}
+.header-right{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-blue{background:var(--pl);color:var(--primary)}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block;margin-right:4px}
+.conn-dot.live{background:#059669}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;box-shadow:var(--sh)}
+.card-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
+.card-value{font-size:24px;font-weight:700}
+.card-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.card.ord .card-value{color:var(--info)}.card.trs .card-value{color:var(--warn)}
+.card.rcv .card-value{color:var(--success)}.card.ovd .card-value{color:var(--danger);cursor:pointer}
+.card.val .card-value{color:var(--primary)}
+
+/* Overdue banner */
+.ovd-banner{background:var(--dbg);border:1px solid #fca5a5;border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;cursor:pointer}
+.ovd-banner.hidden{display:none}
+.ovd-left{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--danger)}
+.ovd-left .cnt{background:var(--danger);color:#fff;border-radius:20px;padding:1px 9px;font-size:12px}
+.ovd-right{font-size:12px;color:var(--danger);text-decoration:underline}
+
+/* Panels */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:14px;overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.ph h2{font-size:14px;font-weight:700}
+.pb{padding:16px;display:none}.pb.open{display:block}
+.chev{transition:transform .2s;display:inline-block}.chev.open{transform:rotate(180deg)}
+
+/* Charts */
+.charts-grid{display:grid;grid-template-columns:1fr 2fr;gap:14px}
+@media(max-width:680px){.charts-grid{grid-template-columns:1fr}}
+.chart-box{background:#fafbfc;border:1px solid var(--border);border-radius:var(--r);padding:12px}
+.chart-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.chart-wrap{position:relative;height:190px}
+
+/* Form */
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.fg input,.fg select,.fg textarea{padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;background:#fafbfc;color:var(--text)}
+.fg input:focus,.fg select:focus{border-color:var(--primary);background:#fff}
+.fg textarea{resize:vertical;min-height:52px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px}
+.full{grid-column:1/-1}
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);grid-column:1/-1;border-bottom:1px solid var(--border);padding-bottom:5px;margin-top:10px}
+.form-actions{display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+
+/* Buttons */
+.btn{padding:7px 13px;border-radius:var(--r);font-size:13px;font-weight:700;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--primary);color:#fff}.btn-outline{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-import{background:#7c3aed;color:#fff}.btn-print{background:#374151;color:#fff}
+.btn-danger-sm{background:var(--danger);color:#fff;padding:3px 7px;font-size:11px;border:none;border-radius:4px;cursor:pointer}
+.btn-settings{background:#f3f4f6;color:#374151;border:1px solid var(--border)}
+
+/* Table */
+.tt{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.tt h2{font-size:14px;font-weight:700;white-space:nowrap}
+.filters{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.sb{position:relative}.sb input{padding:6px 9px 6px 30px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;outline:none;width:165px}
+.sb input:focus{border-color:var(--primary);background:#fff}
+.si{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none}
+select.flt{padding:6px 9px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;outline:none;color:var(--text)}
+select.flt:focus{border-color:var(--primary)}
+.ovd-btn{padding:6px 11px;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;border:1px solid #fca5a5;background:var(--dbg);color:var(--danger);white-space:nowrap}
+.ovd-btn.active{background:var(--danger);color:#fff;border-color:var(--danger)}
+
+/* Bulk bar */
+.bulk-bar{background:#1e3a5f;color:#fff;padding:10px 16px;display:none;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #2d5f8a}
+.bulk-bar.show{display:flex}
+.bulk-cnt{font-size:13px;font-weight:700}
+.bulk-wrap{display:flex;gap:7px;align-items:center;flex-wrap:wrap;flex:1}
+.bsel{padding:5px 8px;border-radius:5px;border:1px solid #2d5f8a;background:#fff;font-size:12px;color:var(--text)}
+.binp{padding:5px 8px;border-radius:5px;border:1px solid #2d5f8a;background:#fff;font-size:12px;width:100px}
+.bapply{padding:5px 10px;border-radius:5px;background:#2563eb;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer}
+.bclr{padding:5px 10px;border-radius:5px;background:transparent;color:#94b8d8;border:1px solid #2d5f8a;font-size:12px;cursor:pointer;margin-left:auto}
+
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f8f9fb;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{background:#eff1f5}th.ns{cursor:default}th.ns:hover{background:#f8f9fb}
+td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}tr:hover td{background:#fafbfc}
+tr.ovd-row td{background:#fff5f5}tr.ovd-row:hover td{background:var(--dbg)}
+.ovd-pill{background:var(--dbg);color:var(--danger);font-size:10px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:3px}
+.empty{text-align:center;padding:44px;color:var(--muted)}
+.empty .ei{font-size:32px;margin-bottom:8px}
+
+/* Inline controls */
+.isel{border:1px solid var(--border);border-radius:4px;font-size:12px;padding:2px 4px;cursor:pointer;background:#fff}
+.iinp{border:1px solid var(--border);border-radius:4px;font-size:12px;padding:2px 5px;background:#fff}
+.iinp:focus,.isel:focus{outline:none;border-color:var(--primary)}
+.vn{color:var(--danger);font-weight:700}.vo{color:var(--success)}.vna{color:var(--muted)}
+
+/* Who added */
+.who-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;background:var(--pl);color:var(--primary)}
+
+/* Pagination */
+.pag{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.pbtns{display:flex;gap:3px}
+.pb2{padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--card);cursor:pointer;font-size:12px}
+.pb2.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pb2:hover:not(.active){background:var(--bg)}
+
+/* Modal */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.mo.open{display:flex}
+.mb{background:var(--card);border-radius:var(--r);padding:20px;width:480px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto}
+.mb h3{font-size:16px;font-weight:700;margin-bottom:4px}
+.mb .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.ma{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.pi{background:var(--pl);border-radius:6px;padding:11px 14px;margin-bottom:12px;font-size:13px}
+.pi p{margin-bottom:3px}.pi p:last-child{margin-bottom:0}
+.pt{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}
+.pt th{background:#f8f9fb;padding:5px 7px;text-align:left;border-bottom:1px solid var(--border);color:var(--muted)}
+.pt td{padding:4px 7px;border-bottom:1px solid var(--border)}
+.ri{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-weight:700;margin-top:5px;outline:none}
+.ri:focus{border-color:var(--primary)}
+.wb{background:var(--wbg);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--warn);margin-top:8px}
+
+.toast{position:fixed;bottom:20px;right:20px;background:#1f2937;color:#fff;padding:10px 16px;border-radius:var(--r);font-size:13px;font-weight:600;z-index:300;transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* Realtime indicator */
+.realtime-badge{display:inline-flex;align-items:center;gap:5px;background:#d1fae5;color:#059669;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.pulse{width:7px;height:7px;border-radius:50%;background:#059669;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+
+@media print{
+  #setup,.header-right,.panel:not(.table-panel),.filters,.tt .filters,
+  .bulk-bar,.ovd-banner,th:last-child,td:last-child,.isel,.iinp,.pag,.mo,.toast{display:none!important}
+  body{background:#fff;font-size:11px}.app{padding:0;max-width:100%}
+  .cards{grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:8px}
+  .card{padding:8px 10px;box-shadow:none}.card-value{font-size:18px}
+  table{font-size:10px}th,td{padding:4px 6px}
+  tr.ovd-row td{background:#fff5f5!important}
+}
+.cmnt-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:2px 5px;position:relative;color:var(--muted)}
+.cmnt-btn:hover{color:var(--primary)}
+.cmnt-badge{position:absolute;top:-2px;right:-2px;background:var(--danger);color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.cmnt-list{max-height:260px;overflow-y:auto;margin-bottom:12px}
+.cmnt-item{background:#f8f9fb;border-radius:6px;padding:9px 12px;margin-bottom:8px;font-size:13px}
+.cmnt-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.cmnt-inp{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;margin-bottom:8px}
+.cmnt-inp:focus{border-color:var(--primary)}
+
+/* Budget panel */
+.budget-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.bcard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;box-shadow:var(--sh)}
+.bcard-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.bcard-value{font-size:22px;font-weight:700}
+.bcard.spent .bcard-value{color:var(--warn)}
+.bcard.remaining .bcard-value{color:var(--success)}
+.bcard.over .bcard-value{color:var(--danger)}
+.bcard.total .bcard-value{color:var(--primary)}
+.budget-table{width:100%;border-collapse:collapse;font-size:13px}
+.budget-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);background:#f8f9fb}
+.budget-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.budget-table tr:last-child td{border-bottom:none}
+.budget-table tr.over-budget td{background:#fff5f5}
+.prog-bar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;min-width:80px}
+.prog-fill{height:100%;border-radius:4px;transition:width .4s}
+.budg-inp{width:100px;padding:4px 7px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:right}
+.budg-inp:focus{outline:none;border-color:var(--primary)}
+.budg-save{padding:4px 9px;background:var(--primary);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer}
+.budg-save:hover{opacity:.85}
+</style>
+</head>
+<body>
+
+<!-- ══ MAIN APP ══════════════════════════════════════════ -->
+<div class="app">
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left" style="display:flex;align-items:center;gap:16px">
+    <div style="padding:4px 8px;background:#fff;border-radius:6px;display:flex;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.12)">
+      <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="180 20 1560 400" style="height:64px;width:auto;display:block" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#201D1E;}
+	.st1{fill:#005A87;}
+	.st2{fill:#7A003C;}
+	.st3{fill:none;}
+	.st4{fill:#7D7D7D;}
+	.st5{fill:#EB9222;}
+	.st6{fill:#C2732A;}
+</style>
+<g>
+	<g>
+		<path class="st0" d="M378.3,226.1l0.2-0.7c12.7-4.1,22.5-9.7,29.3-38.2c7.7-32.6-5.9-43.7-39.4-43.7h-121L207.9,310h133.8
+			c24,0,43.6-7.6,52.3-44.1C399.9,240.8,396,228.9,378.3,226.1z M352.8,257.8c-2.3,9.7-9,12.2-18,12.2h-75.3l6.2-26h75.3
+			C350,244,355.4,246.6,352.8,257.8z M363.5,196.7c-2.2,9.4-7.6,12.9-15.4,12.9h-74.4l6.2-26h74.4C362,183.6,365.8,187,363.5,196.7z
+			"/>
+		<polygon class="st0" points="484.3,143.6 442.3,143.6 402.8,310 532.9,310 543,267.3 455,267.3 		"/>
+		<path class="st0" d="M664,143.6L550.3,310h46.9l19.3-29.4h85.2l6.1,29.4h46.8l-35.9-166.5H664z M640.8,244.7l41.3-62.5l12.4,62.5
+			H640.8z"/>
+		<polygon class="st0" points="746.9,184.9 805.9,184.9 776.3,310 818.3,310 847.9,184.9 907,184.9 916.8,143.6 756.7,143.6 		"/>
+		<polygon class="st0" points="1094.3,143.6 934.1,143.6 924.3,184.9 983.4,184.9 953.7,310 995.7,310 1025.4,184.9 1084.4,184.9 		
+			"/>
+		<polygon class="st0" points="1257,143.6 1228.3,264.5 1228,264.5 1177.7,143.6 1112.6,143.6 1073.1,310 1115.1,310 1143.8,189.1 
+			1144.2,189.1 1194.4,310 1259.6,310 1299,143.6 		"/>
+		<polygon class="st0" points="1333.8,243.3 1426.3,243.3 1434.5,208.9 1342,208.9 1348.3,182.2 1456.2,182.2 1465.3,143.6 
+			1315.4,143.6 1275.9,310 1428.3,310 1437.8,270 1327.5,270 		"/>
+		<path class="st0" d="M1613.9,143.6h-126.8L1447.6,310h42l10.3-43.2h66.1c13.1,0,15.9,5.8,11.7,23.2l-4.7,20h42l6.7-28.3
+			c6.5-27.4-2.3-34-14.2-36.8l0.1-0.5c20.6-5.5,27.9-18.6,33.2-40.9l2.5-10.6C1650.4,163.1,1646.3,143.6,1613.9,143.6z
+			 M1600.2,202.4l-1.3,5.5c-2.8,12-8.3,17.5-19.7,17.5h-69.5l9.6-40.5h65.7C1598.2,184.9,1603.6,187.7,1600.2,202.4z"/>
+		
+			<rect x="1598.9" y="207.3" transform="matrix(0.5145 -0.8575 0.8575 0.5145 598.6208 1471.7833)" class="st1" width="0.3" height="0"/>
+		<polygon class="st1" points="1598.7,207.2 1599,207.4 1599.1,207.1 		"/>
+		<path class="st1" d="M1594.4,218.4l-0.2-0.1l0.1,0.2C1594.4,218.5,1594.4,218.4,1594.4,218.4z"/>
+		<polygon class="st2" points="1492.3,97.6 1519.7,130 1668.2,130.1 1642.1,273.6 1674.5,311.1 1711.4,97.9 		"/>
+		<path class="st2" d="M1209.2,374.5l2.4-9.8h-16.9l-1.8,7.4l-24.5-14.8c-2.8-1.7-2.7-2.1-2.2-3.9c0.5-2.1,1.1-2.9,6.3-2.9h12.5
+			c3.1,0,5.1,0.4,5.7,1.3c0.1,0.2,0.5,0.7,0.2,2.3l-1,4.2h17.9l1-4.2c1.5-6.4,2-10.9-0.4-13.9c-2.9-3.7-9.5-4.3-20.6-4.3h-14
+			c-18.6,0-22.7,2.3-25.7,14.7c-1.5,6.3-1.9,9,1.5,12.3c-8.4,0.7-12.1,4.4-14.5,13.9l-1.1,4.7c-1.4,5.8-0.9,10.1,1.5,13.1
+			c2.8,3.6,8.4,5.3,17.4,5.3h24.4c7.6,0,16-0.5,21.4-5.9l9.2,5.6l8.9-13.1l-9.4-5.7C1207.9,379.2,1208.5,377.5,1209.2,374.5z
+			 M1182.5,384.7h-23.5c-3.3,0-5.1-0.4-5.9-1.5c-0.7-0.9-0.8-2.6-0.2-5.1c1.6-6.8,3.8-6.8,5.6-6.8c1.4,0,1.7,0.1,2.1,0.3
+			L1182.5,384.7z"/>
+		<path class="st2" d="M1310.1,336h-25.3c-22.9,0-26.7,8.4-29.5,20.2c-1.6,6.7-2.1,11.3,0.4,14.4c3,3.8,9.7,5.1,26.6,5.1
+			c13.9,0,21.8,0.1,23.1,1.7c0.3,0.4,0.3,1.2,0,2.6c-0.9,3.6-3.6,4.3-7.9,4.3h-22.2c-2.7,0-4.4-0.2-5.1-1c-0.6-0.7-0.6-2.2,0-4.6
+			l0.3-1.3h-20.3l-1.2,5c-1.4,5.9-1.1,9.9,1.1,12.7c2.8,3.5,8.3,4.9,19.1,4.9h22c23.9,0,30.9-2.5,35.1-19.8
+			c1.9-7.8,1.7-12.2-0.7-15.2c-3.7-4.7-12.3-5.4-30.4-5.4c-11,0.1-18.1,0.1-19.3-1.4c-0.3-0.4-0.3-1.2,0-2.6
+			c0.8-3.2,4.2-3.9,6.9-3.9h20.1c3.7,0,5.8,0.4,6.4,1.2c0.5,0.6,0.3,1.8-0.2,3.8l-0.3,1.3h20.3l0.7-2.7c1.5-6.1,1.8-10.6-0.8-14
+			C1326.1,337.6,1320.1,336,1310.1,336z"/>
+		<path class="st2" d="M1421.5,342c-3.3-4.2-9.5-6.1-20.2-6.1h-29.1c-16.1,0-27.8,3.9-32.3,22.7l-4.3,18c-1.9,7.8-1.3,13.4,1.6,17.1
+			c3.3,4.2,9.5,6.1,20.2,6.1h29.1c16.1,0,27.8-3.9,32.3-22.7l4.3-18C1424.9,351.4,1424.4,345.8,1421.5,342z M1357.6,371.4l1.6-6.5
+			c1.8-7.3,4.4-11.3,13.2-11.3h21.2c3.7,0,6.1,0.7,7.2,2.2c1.2,1.6,1.3,4.1,0.2,8.7l-1.6,6.5c-2,8.3-4.2,11.3-12.2,11.3H1364
+			c-3.5,0-5.6-0.6-6.5-1.8C1356.4,379,1356.4,376.3,1357.6,371.4z"/>
+		<polygon class="st2" points="1500.3,336.6 1490.2,378.9 1467.9,337.2 1467.6,336.6 1438,336.6 1423,399.2 1443.3,399.2 
+			1453.4,357 1475.7,398.7 1476,399.2 1505.6,399.2 1520.6,336.6 		"/>
+		<path class="st2" d="M1580.7,336h-25.3c-22.9,0-26.7,8.4-29.5,20.2c-1.6,6.7-2.1,11.2,0.4,14.4c3,3.8,9.7,5.1,26.6,5.1
+			c13.9,0,21.8,0.1,23.1,1.7c0.3,0.4,0.3,1.2,0,2.6c-0.9,3.6-3.6,4.3-7.9,4.3h-22.2c-2.7,0-4.4-0.2-5.1-1c-0.6-0.7-0.6-2.2-0.1-4.6
+			l0.3-1.3h-20.3l-1.2,5c-1.4,5.9-1.1,9.9,1.1,12.7c2.8,3.5,8.3,4.9,19.1,4.9h22c23.9,0,30.9-2.5,35.1-19.8
+			c1.9-7.8,1.7-12.2-0.7-15.2c-3.7-4.7-12.3-5.4-30.4-5.4c-11,0.1-18.1,0.1-19.3-1.4c-0.3-0.4-0.3-1.2,0-2.6
+			c0.8-3.2,4.2-3.9,6.9-3.9h20.1c3.7,0,5.8,0.4,6.4,1.2c0.5,0.6,0.3,1.8-0.2,3.8l-0.3,1.3h20.3l0.7-2.7c1.5-6.1,1.8-10.6-0.8-14
+			C1596.7,337.6,1590.7,336,1580.7,336z"/>
+		<path class="st2" d="M378.5,37.4c-4.6-5.8-13.3-8.5-27.6-8.5H272l-21.6,90.8h80.1c26.2,0,38.5-8.9,44-31.8l6.2-26.1
+			C383.4,50.5,382.7,42.7,378.5,37.4z M348.8,67.6l-2.8,11.6c-2.8,11.6-7.3,13.6-16.5,13.6h-42.2l9-37.7h43.4c5,0,7.9,0.7,9.1,2.3
+			C350.1,59,350.1,62.4,348.8,67.6z"/>
+		<polygon class="st2" points="471,59.6 422.2,59.6 429.4,28.9 399,28.9 377.3,119.7 407.8,119.7 415.6,87.2 464.4,87.2 
+			456.7,119.7 487.2,119.7 508.8,28.9 478.3,28.9 		"/>
+	</g>
+	<g>
+		<polygon class="st3" points="538.2,559.5 540.5,564.2 542.4,568.3 540.5,564.2 		"/>
+		<polygon class="st3" points="525.1,547.4 549.1,583.3 534.9,562 		"/>
+		<path class="st4" d="M420.4,526.8h-14.2l-16.5,44h12.3l2.2-6.7h18.3l2.2,6.7H437L420.4,526.8z M407.1,554.6l6.1-17.9l6.2,17.9
+			H407.1z"/>
+		<path class="st4" d="M595.5,552.6c0,5.2-2.8,9-8.8,9c-6.1,0-8.9-3.8-8.9-9v-25.8h-11.5V553c0,10.8,6.3,18.6,20.4,18.6
+			c14.1,0,20.4-7.7,20.4-18.7v-26.1h-11.5V552.6z"/>
+		<path class="st4" d="M641.9,526.8h-14.2l-16.5,44h12.3l2.2-6.7H644l2.2,6.7h12.3L641.9,526.8z M628.7,554.6l6.1-17.9l6.2,17.9
+			H628.7z"/>
+		<polygon class="st4" points="694.5,552.2 676.7,526.8 665,526.8 665,570.8 676.4,570.8 676.4,544.2 695,570.8 705.9,570.8 
+			705.9,526.8 694.5,526.8 		"/>
+		<polygon class="st4" points="750.5,526.8 714.6,526.8 714.6,536.7 726.9,536.7 726.9,570.8 738.3,570.8 738.3,536.7 750.5,536.7 
+					"/>
+		<path class="st4" d="M781.3,526.8H767l-16.5,44h12.3l2.2-6.7h18.3l2.2,6.7h12.3L781.3,526.8z M768,554.6l6.1-17.9l6.2,17.9H768z"
+			/>
+		<path class="st4" d="M842,543.3c-4.9-0.9-7.6-1.7-7.6-4c0-1.9,1.4-3.4,5.2-3.4c3.9,0,8.7,1.5,12.4,4.5l6.2-8.1
+			c-4.7-4-10.8-6.1-17.9-6.1c-11.3,0-17.5,6.4-17.5,13.8c0,10.4,10.2,12.3,17.4,13.7c4.7,1,7.5,2,7.5,4.5c0,2.1-2.4,3.8-6.3,3.8
+			c-6,0-10.9-2.6-14-5.8l-6,8.5c4.4,4.2,10.6,7,19.5,7c11.8,0,18.3-5.9,18.3-14.7C859.2,546.9,849.2,544.8,842,543.3z"/>
+		<polygon class="st4" points="867.8,570.8 900,570.8 900,561.2 879.1,561.2 879.1,553.3 899.6,553.3 899.6,543.7 879.1,543.7 
+			879.1,536.4 900,536.4 900,526.8 867.8,526.8 		"/>
+		<path class="st4" d="M938.5,554.7c4.1-1.5,8.8-5.5,8.8-13.2c0-8.2-5.5-14.6-15.3-14.6h-22v44h11.3v-14.9h5.8l7.4,14.9h13
+			L938.5,554.7z M930.2,546.3h-9v-9.9h9c3,0,5.5,1.9,5.5,4.9C935.7,544.4,933.2,546.3,930.2,546.3z"/>
+		<polygon class="st4" points="975.1,558.5 964.3,526.8 951.4,526.8 968,570.8 982.2,570.8 998.8,526.8 986,526.8 		"/>
+		<rect x="1006.7" y="526.8" class="st4" width="11.3" height="44"/>
+		<path class="st4" d="M1050.4,536.1c4.5,0,8.3,2.9,9.8,6.4l9.8-4.6c-2.9-5.8-8.6-11.8-19.5-11.8c-13.2,0-23.5,9.2-23.5,22.7
+			c0,13.5,10.3,22.7,23.5,22.7c10.9,0,16.7-6.1,19.5-11.8l-9.8-4.6c-1.4,3.5-5.2,6.4-9.8,6.4c-6.9,0-11.9-5.5-11.9-12.7
+			C1038.5,541.7,1043.6,536.1,1050.4,536.1z"/>
+		<polygon class="st4" points="1078.1,570.8 1110.4,570.8 1110.4,561.2 1089.5,561.2 1089.5,553.3 1109.9,553.3 1109.9,543.7 
+			1089.5,543.7 1089.5,536.4 1110.4,536.4 1110.4,526.8 1078.1,526.8 		"/>
+		<path class="st4" d="M1137.7,543.3c-4.9-0.9-7.6-1.7-7.6-4c0-1.9,1.5-3.4,5.2-3.4c3.9,0,8.7,1.5,12.4,4.5l6.2-8.1
+			c-4.7-4-10.8-6.1-17.9-6.1c-11.3,0-17.5,6.4-17.5,13.8c0,10.4,10.2,12.3,17.4,13.7c4.7,1,7.5,2,7.5,4.5c0,2.1-2.4,3.8-6.3,3.8
+			c-6,0-10.9-2.6-14-5.8l-6,8.5c4.4,4.2,10.6,7,19.5,7c11.8,0,18.3-5.9,18.3-14.7C1154.9,546.9,1144.9,544.8,1137.7,543.3z"/>
+		<path class="st4" d="M1204.9,536.1c4.5,0,8.3,2.9,9.8,6.4l9.8-4.6c-2.9-5.8-8.6-11.8-19.5-11.8c-13.2,0-23.5,9.2-23.5,22.7
+			c0,13.5,10.3,22.7,23.5,22.7c10.9,0,16.7-6.1,19.5-11.8l-9.8-4.6c-1.4,3.5-5.2,6.4-9.8,6.4c-6.9,0-11.9-5.5-11.9-12.7
+			C1193,541.7,1198,536.1,1204.9,536.1z"/>
+		<polygon class="st4" points="1311.3,551.8 1302.1,526.8 1286.4,526.8 1286.4,570.8 1297.7,570.8 1297.7,541.1 1308.8,570.8 
+			1313.8,570.8 1324.9,541.1 1324.9,570.8 1336.2,570.8 1336.2,526.8 1320.5,526.8 		"/>
+		<path class="st4" d="M1369.5,526.8h-22v44h11.3v-14.9h10.7c9.9,0,15.3-6.5,15.3-14.4C1384.8,533.5,1379.4,526.8,1369.5,526.8z
+			 M1368,546.3h-9.2v-9.9h9.2c3,0,5.3,2,5.3,5C1373.2,544.4,1371,546.3,1368,546.3z"/>
+		<path class="st4" d="M1414.5,526.8h-14.2l-16.5,44h12.3l2.2-6.7h18.3l2.2,6.7h12.3L1414.5,526.8z M1401.2,554.6l6.1-17.9l6.2,17.9
+			H1401.2z"/>
+		<polygon class="st4" points="1467.1,552.2 1449.3,526.8 1437.6,526.8 1437.6,570.8 1449,570.8 1449,544.2 1467.6,570.8 
+			1478.5,570.8 1478.5,526.8 1467.1,526.8 		"/>
+		<polygon class="st4" points="1516.8,526.8 1507.4,543.1 1497.8,526.8 1485,526.8 1501.7,553.1 1501.7,570.8 1513,570.8 
+			1513,553.1 1529.6,526.8 		"/>
+		<path class="st5" d="M538.2,559.5l-8.5-17.7l-0.3-0.7l-0.4-0.8c-0.1-0.1-0.2-0.2-0.4-0.2c0,0,0,0,0,0c-0.1,0-0.2,0-0.3,0.1
+			l-3.7,3.1l-0.5,0.5l0,0l0,0l-3.1-4.3l-0.3-0.5c-3.8-3-8.5-4.1-13-3.3c-0.2,0-0.5,0.1-0.7,0.1l1.5,1.9l11.4,14.3l5.2-4.6l9.8,14.6
+			l14.2,21.2l0.3-0.3l-7-14.7l-2-4.1L538.2,559.5z"/>
+		<path class="st6" d="M519.9,552l-11.4-14.3l-1.5-1.9c-0.2,0-0.3,0.1-0.5,0.1c-1.5,0.4-2.9,0.9-4.2,1.7c0,0-0.1,0-0.1,0
+			c0,0,0,0-0.1,0c-0.9,0.5-1.8,1.2-2.6,1.9l-0.5,0.5c0,0-0.1,0.1-0.1,0.1l15.2,20.8c0.2,0.3,0.6,0.3,0.9,0.1l7.4-6.2l8.5,9.3l0,0
+			c0,0,0,0,0,0l3,3.3l3,3.2c0,0,0,0,0,0l11.9,13l0.3-0.3l-24-35.8L519.9,552z"/>
+		<path class="st4" d="M533.9,567.4l-3-3.3c0,0,0,0,0,0c-3.9,1.6-8.3,2.6-13.1,2.6c-14.4,0-26.1-8.5-26.1-18.9c0-0.4,0-0.9,0.1-1.3
+			l0,0c0.3-2.3,1.1-4.4,2.5-6.4c0.1-0.1,0.2-0.3,0.3-0.4c0.5-0.7,1.1-1.4,1.7-2l0.5-0.5c0.8-0.7,1.7-1.4,2.6-1.9c0,0,0.1,0,0.1,0
+			c0,0,0,0,0.1,0c1.3-0.8,2.8-1.3,4.3-1.7c0.4-0.1,0.8-0.2,1.2-0.2c5.1-0.9,10.5,0.6,14.4,4.4c0.2,0.2,0.4,0.4,0.5,0.4
+			c0.1,0.1,0.2,0.2,0.3,0.3c0,0,0,0,0,0l-0.5-0.7l-0.6-0.8c-0.1-0.1-0.1-0.1-0.2-0.2c-2.3-3.1-5.3-5.5-8.5-7.1
+			c-1.6-0.8-3.2-1.3-4.8-1.7c-0.4-0.1-0.8-0.2-1.2-0.3c-3.7-0.7-7.5-0.5-11.1,0.6c-0.1,0-0.1,0-0.2,0.1c-1.2,0.4-2.3,0.8-3.5,1.4
+			c-1.9,1-3.7,2.2-5.4,3.8c0,0,0,0,0,0c0,0,0,0,0,0c-0.1,0.1-0.3,0.3-0.4,0.4c0,0-0.1,0.1-0.1,0.1c-0.1,0.1-0.2,0.2-0.3,0.3
+			c-0.1,0.1-0.1,0.1-0.2,0.2c-0.1,0.1-0.2,0.2-0.3,0.3c-0.1,0.1-0.1,0.1-0.2,0.2c-0.1,0.1-0.2,0.2-0.2,0.3c-0.1,0.1-0.1,0.1-0.2,0.2
+			c-0.1,0.1-0.2,0.2-0.2,0.3c0,0.1-0.1,0.1-0.1,0.2c-0.1,0.1-0.2,0.2-0.2,0.3c0,0-0.1,0.1-0.1,0.1c-0.1,0.2-0.2,0.3-0.4,0.5
+			c0,0,0,0,0,0c-0.1,0.2-0.2,0.3-0.3,0.5c0,0.1-0.1,0.1-0.1,0.2c-0.1,0.1-0.1,0.2-0.2,0.3c0,0.1-0.1,0.1-0.1,0.2
+			c-0.1,0.1-0.1,0.2-0.2,0.3c0,0.1-0.1,0.1-0.1,0.2c-0.1,0.1-0.1,0.2-0.2,0.3c0,0.1-0.1,0.1-0.1,0.2c-0.1,0.1-0.1,0.2-0.2,0.3
+			c0,0.1-0.1,0.1-0.1,0.2c-0.1,0.1-0.1,0.2-0.2,0.3c0,0.1-0.1,0.1-0.1,0.2c-0.1,0.2-0.2,0.3-0.2,0.5c0,0,0,0,0,0
+			c-0.1,0.2-0.2,0.3-0.2,0.5c0,0.1,0,0.1-0.1,0.2c0,0.1-0.1,0.2-0.1,0.3c0,0.1-0.1,0.1-0.1,0.2c0,0.1-0.1,0.2-0.1,0.3
+			c0,0.1-0.1,0.1-0.1,0.2c0,0.1-0.1,0.2-0.1,0.3c0,0.1,0,0.1-0.1,0.2c0,0.1-0.1,0.2-0.1,0.3c0,0.1,0,0.1-0.1,0.2
+			c0,0.1-0.1,0.2-0.1,0.3c0,0.1,0,0.1,0,0.2c0,0.2-0.1,0.3-0.1,0.5c0,0.2-0.1,0.3-0.1,0.5c0,0.1,0,0.1,0,0.2c0,0.1,0,0.2-0.1,0.4
+			c0,0.1,0,0.1,0,0.2c0,0.1,0,0.2-0.1,0.3c0,0.1,0,0.1,0,0.2c0,0.1,0,0.2,0,0.3c0,0.1,0,0.1,0,0.2c0,0.1,0,0.2,0,0.3
+			c0,0.1,0,0.1,0,0.2c0,0.1,0,0.2,0,0.4c0,0.1,0,0.1,0,0.2c0,0.2,0,0.4,0,0.5c0,14.2,18.1,25.7,40.4,25.7c6.9,0,13.4-1.1,19-3
+			c0,0,0,0,0,0L533.9,567.4z"/>
+		<path class="st4" d="M555,537.7c-0.3-0.4-0.6-0.8-0.9-1.2c0,0,0,0,0-0.1c-0.1-0.1-0.1-0.2-0.2-0.2l0,0
+			c-10.1-13.3-38.3-16.2-38.6-16.2l0,0c-0.1,0-0.2,0.1-0.2,0.3c0,0.2,0,0.3,0.1,0.3c0,0,0,0,0,0v0c0.1,0,6.5,0.7,14.1,2.7
+			c0,0,0,0,0,0c0,0,0,0,0,0c-0.8-0.2-1.3-0.3-1.3-0.3l0,0c0,0,0,0,0,0c-0.1,0-0.1,0.1-0.2,0.2c-6.6-1.6-11.7-2.2-11.8-2.2v0
+			c-0.1,0-0.2,0.1-0.2,0.3c0,0.2,0,0.3,0.1,0.3c0,0,0,0,0,0v0c0,0,0.6,0.1,1.6,0.2c0,0.1-0.1,0.1-0.1,0.2c0,0,0,0.1,0,0.1
+			c-1.9-0.3-3.1-0.4-3.2-0.4l0,0c-0.1,0-0.2,0.1-0.2,0.3c0,0.2,0,0.3,0.1,0.3c0,0,0,0,0,0v0c0.1,0,1.1,0.1,2.8,0.3
+			c-0.1,0-0.1,0.2-0.1,0.3c0,0.2,0,0.3,0.1,0.3v0c0.1,0,4.2,0.4,9.5,1.6c0,0,0,0,0,0.1c0,0,0,0,0,0c-4.9-1-8.6-1.4-8.7-1.4l0,0
+			c0,0,0,0,0,0c-0.1,0-0.2,0.1-0.2,0.3c0,0.1,0,0.2,0,0.2c-0.8-0.1-1.2-0.1-1.2-0.1l0,0c0,0,0,0,0,0c-0.1,0-0.2,0.1-0.2,0.3
+			c0,0.2,0.1,0.3,0.1,0.3l0,0c0.1,0,5.7,0.5,12.4,2.1c0,0,0,0,0,0c-7.5-1.8-14.4-2.1-14.4-2.1l0,0c0,0,0,0,0,0
+			c-0.1,0-0.2,0.1-0.2,0.3c0,0.2,0.1,0.3,0.1,0.3v0c0,0,0.6,0,1.5,0.1c-0.1,0.1-0.1,0.2-0.1,0.3c0,0.2,0,0.3,0.1,0.3v0
+			c0.1,0,5.7,0.4,12.1,2c0,0,0,0,0,0.1c0,0,0,0,0,0c-6.7-1.6-13-1.9-14.3-2l-0.1,0v0c0,0,0,0,0,0c-0.1,0-0.2,0.1-0.2,0.3
+			c0,0.2,0,0.3,0.1,0.3v0l0.1,0c1.8,0.1,12.3,0.6,20.9,4.1c0,0,0,0.1,0,0.1c0,0,0,0.1,0,0.1c-7.7-3.2-16.4-3.8-17.9-3.9l-0.1,0
+			c0,0,0,0,0,0c-0.1,0-0.2,0.1-0.2,0.3c0,0,0,0,0,0c-0.8,0-1.4,0-1.8,0l-0.1,0v0c-0.1,0-0.2,0.1-0.2,0.3c0,0.2,0.1,0.3,0.1,0.3
+			c0,0,0,0,0,0v0l0.1,0c1.8,0,14,0.3,22.6,5.3c0,0,0,0,0,0.1c0,0,0,0,0,0c-8.3-4.6-18.9-5-19.2-5.1c0,0,0,0,0,0
+			c-0.1,0-0.2,0.1-0.2,0.3c0,0.1,0,0.2,0.1,0.3c-1.2-0.1-1.9-0.1-1.9-0.1v0c-0.1,0-0.1,0.1-0.1,0.3c0,0.2,0.1,0.3,0.1,0.3v0
+			c0.2,0,15.7,0.4,23.4,6.8c0.1,0.1,0.2,0.2,0.3,0.3c0,0,0,0,0,0c0.1,0.2,0.3,0.3,0.4,0.5h0c2.5,2.9,4,6.4,4,10.1
+			c0,4.4-2.1,8.5-5.7,11.7l2.2,4.7l2,4.1c9.6-4.7,15.8-12.1,15.8-20.4C558.3,544.3,557.1,540.8,555,537.7
+			C555,537.7,555,537.7,555,537.7z"/>
+		<path class="st4" d="M1253.9,526.1c-13.4,0-23.5,9.4-23.5,22.7c0,1,0.1,2,0.2,3c1.4,11.8,10.9,19.7,23.3,19.7
+			c12.4,0,21.9-8,23.3-19.7c0.1-1,0.2-2,0.2-3C1277.3,535.5,1267.3,526.1,1253.9,526.1z M1253.9,561.6c-6.2,0-10.6-4.1-11.7-9.7
+			c-0.2-1-0.3-2-0.3-3c0-7.2,4.7-12.7,12-12.7c7.2,0,11.9,5.5,11.9,12.7c0,1-0.1,2-0.3,3C1264.4,557.5,1260,561.6,1253.9,561.6z"/>
+	</g>
+</g>
+</svg>
+
+    </div>
+    <div>
+      <h1 style="font-size:18px;font-weight:700">D.H. Blattner &amp; Sons REQ Tracker</h1>
+      <p id="projectInfo" style="color:var(--muted);font-size:13px;margin-top:2px">Loading…</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="realtime-badge"><span class="pulse"></span><span id="connLabel">Connecting…</span></span>
+    <span class="badge badge-blue">DH</span>
+    <button class="btn btn-import" onclick="document.getElementById('xlsxIn').click()">📥 Import REQ Excel</button>
+    <button class="btn btn-print" onclick="printReport()">🖨️ Print</button>
+    <button class="btn btn-outline" onclick="exportCSV()" style="font-size:12px">⬇ CSV</button>
+    <button class="btn btn-settings" onclick="openSettings()" style="font-size:12px">⚙️</button>
+    <input type="file" id="xlsxIn" accept=".xlsx" style="display:none" onchange="handleFile(this)">
+  </div>
+</div>
+
+<!-- Overdue Banner -->
+<div class="ovd-banner hidden" id="ovdBanner" onclick="toggleOvd()">
+  <div class="ovd-left">⚠️ <span class="cnt" id="ovdCnt">0</span><span id="ovdLabel">items past required date — not yet received</span></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button onclick="sendOverdueDigest();event.stopPropagation()" style="background:var(--danger);color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📧 Email Digest</button>
+    <div class="ovd-right" id="ovdAction">Show overdue only →</div>
+  </div>
+</div>
+
+<!-- Cards -->
+<div class="cards">
+  <div class="card"><div class="card-label">Total Lines</div><div class="card-value" id="sTotal">0</div><div class="card-sub">all REQs</div></div>
+  <div class="card ord"><div class="card-label">Ordered</div><div class="card-value" id="sOrd">0</div><div class="card-sub">awaiting ship</div></div>
+  <div class="card trs"><div class="card-label">In Transit</div><div class="card-value" id="sTrs">0</div><div class="card-sub">on the way</div></div>
+  <div class="card rcv"><div class="card-label">Received</div><div class="card-value" id="sRcv">0</div><div class="card-sub" id="sRcvSub">on site</div></div>
+  <div class="card ovd" onclick="toggleOvd()"><div class="card-label">⚠ Overdue</div><div class="card-value" id="sOvd">0</div><div class="card-sub">past req date</div></div>
+  <div class="card"><div class="card-label">Shortages</div><div class="card-value" id="sSh" style="color:var(--danger)">0</div><div class="card-sub">qty variance</div></div>
+  <div class="card val"><div class="card-label">Total Value</div><div class="card-value" id="sVal">$0</div><div class="card-sub">ordered cost</div></div>
+</div>
+
+<!-- Analytics -->
+<div class="panel">
+  <div class="ph" onclick="togglePanel('analytics')"><h2>📊 Analytics</h2><span class="chev" id="analyticsChev">▼</span></div>
+  <div class="pb" id="analyticsBody">
+    <div class="charts-grid">
+      <div class="chart-box"><div class="chart-title">Status Breakdown</div><div class="chart-wrap"><canvas id="statusChart"></canvas></div></div>
+      <div class="chart-box"><div class="chart-title">Spend by Category ($)</div><div class="chart-wrap"><canvas id="catChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ BUDGET PANEL ══════════════════════════════════════ -->
+<div class="panel">
+  <div class="ph" onclick="toggleBudgetPanel()">
+    <h2>💰 Budget vs. Actual</h2>
+    <span class="chev" id="budgetChev">▼</span>
+  </div>
+  <div class="pb" id="budgetPb">
+    <!-- Summary cards -->
+    <div class="budget-grid" id="budgetCards">
+      <div class="bcard total"><div class="bcard-label">Total Budget</div><div class="bcard-value" id="bTotalBudget">$0</div></div>
+      <div class="bcard spent"><div class="bcard-label">Total Spent</div><div class="bcard-value" id="bTotalSpent">$0</div></div>
+      <div class="bcard remaining" id="bRemainingCard"><div class="bcard-label">Remaining</div><div class="bcard-value" id="bRemaining">$0</div></div>
+      <div class="bcard"><div class="bcard-label">% Used</div><div class="bcard-value" id="bPctUsed">0%</div></div>
+    </div>
+    <!-- Per-trade budget table -->
+    <div class="tw">
+      <table class="budget-table">
+        <thead>
+          <tr>
+            <th>Trade / Category</th>
+            <th>Budget</th>
+            <th>Spent</th>
+            <th>Remaining</th>
+            <th>Progress</th>
+            <th>Set Budget</th>
+          </tr>
+        </thead>
+        <tbody id="budgetBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+  <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">➕ Add / Set Budget for a Trade</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <select id="budgetTradeSelect" class="flt" style="min-width:160px">
+      <option value="">— Select Trade —</option>
+      <option value="Civil">Civil</option>
+      <option value="Electrical">Electrical</option>
+      <option value="Mechanical">Mechanical</option>
+      <option value="Structural">Structural</option>
+      <option value="Plumbing">Plumbing</option>
+      <option value="Instrumentation">Instrumentation</option>
+    </select>
+    <input id="budgetAmtInp" type="number" min="0" step="1000" placeholder="Budget amount ($)" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:180px;outline:none">
+    <button onclick="saveSelectedBudget()" class="btn btn-primary" style="padding:6px 14px">💾 Save Budget</button>
+  </div>
+  <p style="font-size:11px;color:var(--muted);margin-top:8px">💡 Select a trade, enter the budget amount, and click Save. Updates in real time for the whole team. To add new trades, use ⚙️ Settings → Manage Trades.</p>
+</div>
+  </div>
+</div>
+
+<!-- Add Form -->
+<div class="panel">
+  <div class="ph" onclick="togglePanel('form')"><h2>✏️ Add Line Manually</h2><span class="chev" id="formChev">▼</span></div>
+  <div class="pb" id="formBody">
+    <div class="form-grid">
+      <div class="sec-title">Requisition Info</div>
+      <div class="fg"><label>REQ #</label><input id="f_rn" placeholder="REQ-001"></div>
+      <div class="fg"><label>REQ Date</label><input type="date" id="f_rd"></div>
+      <div class="fg"><label>Project #</label><input id="f_pn"></div>
+      <div class="fg"><label>Project Task</label><input id="f_pt"></div>
+      <div class="fg"><label>Prepared By</label><select id="f_prep"><option value="">-- Select --</option></select></div>
+
+      <div class="sec-title">Item Details</div>
+      <div class="fg"><label>Category</label><select id="f_cat"><option value="">--</option></select></div>
+      <div class="fg"><label>Part #</label><input id="f_part"></div>
+      <div class="fg"><label>Vendor / Supplier</label><input id="fVendor" placeholder="e.g. Anixter"></div>
+      <div class="fg"><label>Trade</label><select id="fTrade" class="trade-select"><option value="">— Select Trade —</option></select></div>
+      <div class="fg" style="grid-column:span 2"><label>Description 1</label><input id="f_d1"></div>
+      <div class="fg" style="grid-column:span 2"><label>Description 2</label><input id="f_d2"></div>
+      <div class="fg"><label>Qty Ordered</label><input type="number" id="f_qty" min="0"></div>
+      <div class="fg"><label>UOM</label><select id="f_uom"><option value="">--</option></select></div>
+      <div class="fg"><label>Unit Cost ($)</label><input type="number" id="f_uc" step="0.01" min="0"></div>
+      <div class="fg"><label>Required Date</label><input type="date" id="f_req"></div>
+      <div class="fg"><label>Call-off Date</label><input type="date" id="f_co"></div>
+      <div class="fg full"><label>Notes</label><textarea id="f_notes"></textarea></div>
+
+      <div class="sec-title">Procurement</div>
+      <div class="fg"><label>Status</label><select id="f_st"><option>Ordered</option><option>In Transit</option><option>Received</option><option>Partial</option><option>Cancelled</option></select></div>
+      <div class="fg">
+        <label>Date Received</label>
+        <input type="date" id="fDateReceived">
+      </div>
+      <div class="fg"><label>PO # (JDE)</label><input id="f_po"></div>
+      <div class="fg"><label>Qty Received</label><input type="number" id="f_qr" min="0"></div>
+      <div class="fg"><label>Received Date</label><input type="date" id="f_rcvd"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addLine()">➕ Add Line</button>
+      <button class="btn btn-outline" onclick="clearForm()">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel table-panel">
+  <div class="tt">
+    <h2 id="tTitle">All Materials (0)</h2>
+    <div class="filters">
+      <div class="sb"><span class="si">🔍</span><input id="search" placeholder="Search…" oninput="filterTable()"></div>
+      <select class="flt" id="fSt" onchange="filterTable()"><option value="">All Status</option><option>Ordered</option><option>In Transit</option><option>Received</option><option>Partial</option><option>Cancelled</option></select>
+      <select class="flt" id="fCat" onchange="filterTable()"><option value="">All Categories</option></select>
+      <select class="flt" id="fReq" onchange="filterTable()"><option value="">All REQs</option></select>
+      <select class="flt" id="tradeFilter" onchange="filterTable()"><option value="">All Trades</option></select>
+      <button class="ovd-btn" id="ovdBtn" onclick="toggleOvd()">⚠️ Overdue</button>
+      <button class="btn" id="todayDelivBtn" onclick="toggleTodayFilter()" style="background:#d1fae5;color:#059669;border:1px solid #6ee7b7;font-size:12px;padding:5px 11px">📦 Today Delivered</button>
+    </div>
+  </div>
+  <div class="bulk-bar" id="bulkBar">
+    <span class="bulk-cnt" id="bulkCnt">0 selected</span>
+    <div class="bulk-wrap">
+      <select class="bsel" id="bStSel"><option value="">Set Status…</option><option>Ordered</option><option>In Transit</option><option>Received</option><option>Partial</option><option>Cancelled</option></select>
+      <button class="bapply" onclick="applyBulkSt()">Apply</button>
+      <input class="binp" id="bPoInp" placeholder="Set PO #…">
+      <button class="bapply" onclick="applyBulkPo()">Apply PO</button>
+      <input class="binp" id="bRcvInp" type="number" placeholder="Set Rcvd Qty…" min="0">
+      <button class="bapply" onclick="applyBulkRcv()">Apply Qty</button>
+    </div>
+    <button class="bclr" onclick="clearSel()">✕ Clear</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th class="ns" style="width:30px"><input type="checkbox" id="selAll" onchange="toggleSelAll(this)"></th>
+        <th onclick="sortBy('req_num')">REQ #</th>
+        <th onclick="sortBy('req_date')">REQ Date</th>
+        <th onclick="sortBy('project_task')">Task</th>
+        <th onclick="sortBy('category')">Cat</th>
+        <th onclick="sortBy('part_num')">Part #</th>
+        <th onclick="sortBy('vendor')">Vendor</th>
+        <th onclick="sortBy('trade')">TRADE</th>
+        <th onclick="sortBy('desc1')">Description</th>
+        <th onclick="sortBy('qty')" style="text-align:right">Qty</th>
+        <th>UOM</th>
+        <th onclick="sortBy('unit_cost')" style="text-align:right">Cost</th>
+        <th style="text-align:right">Total</th>
+        <th onclick="sortBy('required_date')">Req Date</th>
+        <th onclick="sortBy('status')">Status</th>
+        <th onclick="sortBy('dateReceived')">RCVD DATE</th>
+        <th>PO #</th>
+        <th style="text-align:right">Rcvd</th>
+        <th style="text-align:right">Var</th>
+        <th onclick="sortBy('prepared_by')">By</th>
+        <th>Notes</th>
+        <th class="ns"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="pag"><span id="pagInfo">0 records</span><div class="pbtns" id="pbtns"></div></div>
+</div>
+</div>
+
+<!-- Import modal -->
+<div class="mo" id="importMo">
+  <div class="mb">
+    <h3>📥 Import REQ Excel</h3><p class="sub">Review before importing</p>
+    <div class="pi" id="prevInfo"></div>
+    <div style="margin-bottom:10px"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">REQ # (required)</label><input id="impRn" class="ri" placeholder="REQ-001" oninput="valImp()"></div>
+    <div style="margin-bottom:8px"><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Prepared By</label>
+    <select id="impPrep" class="ri" style="font-size:13px;font-weight:400;margin-top:5px"><option value="">-- Select --</option></select></div>
+    <p style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Preview (first 5 lines)</p>
+    <div style="overflow-x:auto"><table class="pt" id="prevTable"></table></div>
+    <div class="wb" id="impWarn" style="display:none"></div>
+    <div class="ma">
+      <button class="btn btn-outline" onclick="closeModal('importMo')">Cancel</button>
+      <button class="btn btn-import" id="confImpBtn" onclick="confirmImport()" disabled>Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete modal -->
+<div class="mo" id="delMo">
+  <div class="mb" style="width:320px">
+    <h3>Delete this line?</h3><p class="sub">Cannot be undone.</p>
+    <div class="ma">
+      <button class="btn btn-outline" onclick="closeModal('delMo')">Cancel</button>
+      <button class="btn" style="background:var(--danger);color:#fff" onclick="confirmDel()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="mo" id="settingsMo">
+  <div class="mb">
+    <h3>⚙️ Settings</h3><p class="sub">Update team or Firebase config</p>
+    <div style="margin-bottom:10px"><label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Team Members</label><div id="settingsTeam" style="margin-top:6px"></div><button class="btn-add-team" style="margin-top:6px" onclick="addTeamRow('settings')">+ Add person</button></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Manage Trades</div>
+      <div id="tradeList" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <input id="newTradeInp" placeholder="New trade name…" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none">
+        <button onclick="addTrade()" class="btn btn-primary" style="padding:6px 12px">+ Add</button>
+      </div>
+    </div>
+    <div class="ma">
+      <button class="btn btn-outline" onclick="closeModal('settingsMo')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Comment modal -->
+<div class="mo" id="cmntModal">
+  <div class="mb" style="width:420px">
+    <h3>💬 Comments</h3>
+    <p class="sub" id="cmntSub">REQ line comments</p>
+    <div class="cmnt-list" id="cmntList"></div>
+    <input class="cmnt-inp" id="cmntInp" placeholder="Add a comment…">
+    <div class="ma">
+      <button class="btn btn-outline" onclick="closeCmnt()">Close</button>
+      <button class="btn btn-primary" onclick="postComment()">Post</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Budget Allocation ────────────────────────────────────
+let budgets = {}; // { tradeName: allocatedAmount }
+let budgetsRef;
+
+function initBudgets() {
+  budgetsRef = db.ref('budgets');
+  budgetsRef.on('value', snap => {
+    budgets = snap.val() || {};
+    renderBudgetPanel();
+  });
+}
+
+function saveBudget(trade) {
+  const inp = document.getElementById('binp-' + trade.replace(/\s+/g,'_'));
+  if (!inp) return;
+  const val = parseFloat(inp.value) || 0;
+  db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(val);
+  toast('Budget saved for ' + trade);
+}
+function saveSelectedBudget() {
+  const tradeEl = document.getElementById('budgetTradeSelect');
+  const amtEl = document.getElementById('budgetAmtInp');
+  if (!tradeEl || !amtEl) return;
+  const trade = tradeEl.value;
+  const amt = parseFloat(amtEl.value) || 0;
+  if (!trade) { toast('Please select a trade first'); return; }
+  if (!amt) { toast('Please enter a budget amount'); return; }
+  db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(amt);
+  amtEl.value = '';
+  toast('Budget saved: ' + trade + ' = $' + amt.toLocaleString());
+}
+
+function renderBudgetPanel() {
+  // Calculate spend per trade from data object
+  const spendByTrade = {};
+  getArray().forEach(r => {
+    const t = r.trade || r.category || 'Unassigned';
+    const cost = parseFloat(r.unit_cost || 0) * parseFloat(r.qty || 1);
+    spendByTrade[t] = (spendByTrade[t] || 0) + cost;
+  });
+
+  // Get all trades (union of tradeOptions + keys that have spend)
+  const defaultTrades=['Civil','Electrical','Mechanical','Structural','Plumbing','Instrumentation'];
+  const loadedTrades=(typeof tradeOptions!=='undefined'&&tradeOptions.length>0)?tradeOptions:defaultTrades;
+  const allTrades=Array.from(new Set([...loadedTrades,...Object.keys(spendByTrade)]));
+  if(allTrades.length===0)allTrades.push(...defaultTrades);
+
+  let totalBudget = 0, totalSpent = 0;
+  const rows = allTrades.map(trade => {
+    const key = trade.replace(/\s+/g,'_');
+    const budget = parseFloat(budgets[key] || 0);
+    const spent = spendByTrade[trade] || 0;
+    const remaining = budget - spent;
+    const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+    const over = spent > budget && budget > 0;
+    totalBudget += budget;
+    totalSpent += spent;
+
+    const barColor = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warn)' : 'var(--success)';
+
+    return `<tr class="${over ? 'over-budget' : ''}">
+      <td><strong>${trade}</strong>${over ? ' <span style="color:var(--danger);font-size:10px;font-weight:700">⚠ OVER</span>' : ''}</td>
+      <td>$${budget.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+      <td style="color:${spent>0?'var(--warn)':'var(--muted)'}">$${spent.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+      <td style="color:${over?'var(--danger)':remaining>0?'var(--success)':'var(--muted)'}">$${remaining.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+      <td>
+        <div class="prog-bar">
+          <div class="prog-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(pct)}%</div>
+      </td>
+      <td>
+        <div style="display:flex;gap:5px;align-items:center">
+          <input class="budg-inp" id="binp-${key}" type="number" min="0" step="1000" placeholder="0" value="${budget||''}">
+          <button class="budg-save" onclick="saveBudget('${trade}')">Save</button>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  const body = document.getElementById('budgetBody');
+  if (body) body.innerHTML = rows.join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No trades yet. Use the form below to add a budget, or go to ⚙️ Settings to add trades first.</td></tr>';
+  // Populate the quick-add trade select
+  const bts = document.getElementById('budgetTradeSelect');
+  if (bts) {
+    const curVal = bts.value;
+    bts.innerHTML = '<option value="">— Select Trade —</option>' +
+      allTrades.map(t => `<option value="${t}">${t}</option>`).join('');
+    if (curVal) bts.value = curVal;
+  }
+
+  // Update summary cards
+  const remaining = totalBudget - totalSpent;
+  const pctUsed = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+  const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+
+  const el = id => document.getElementById(id);
+  if(el('bTotalBudget')) el('bTotalBudget').textContent = fmt(totalBudget);
+  if(el('bTotalSpent')) el('bTotalSpent').textContent = fmt(totalSpent);
+  if(el('bRemaining')) el('bRemaining').textContent = (remaining < 0 ? '-' : '') + fmt(remaining);
+  if(el('bPctUsed')) el('bPctUsed').textContent = pctUsed + '%';
+
+  // Color remaining card red if over budget
+  const remCard = el('bRemainingCard');
+  if(remCard) {
+    remCard.className = 'bcard ' + (remaining < 0 ? 'over' : 'remaining');
+  }
+}
+
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js">
+// ── Constants ──────────────────────────────────────────────
+const CFG_KEY='ejde_firebase_cfg';
+const CATS=['ADV','APO','BOX','BRA','BUS','CBT','CLO','COM','CON','CST','CTR','DEP',
+  'DFL','ENG','EQV','ERC','ES','FAM','FAS','FAV','FGT','FIB','FLO','FR','GM','HVC',
+  'IDT','INS','INU','ISW','LGL','LTG','LVC','MEA','MIS','MRO','OFF','OHC','OHS',
+  'OPG','UGD','XHW','XMP'];
+const UOMS=['EA','FT','LF','M','KF','LB','KG','RL','BX','PR','SET','LS','GAL','TON','CY'];
+const STS=['Ordered','In Transit','Received','Partial','Cancelled'];
+const CHART_COLORS=['#1a56db','#059669','#d97706','#dc2626','#7c3aed','#0284c7',
+  '#be185d','#65a30d','#ea580c','#0891b2','#6366f1','#db2777'];
+const PAGE=25;
+
+// ── State ──────────────────────────────────────────────────
+let db=null, dataRef=null;
+let data={}, filtered=[], sortCol='req_date', sortDir=-1, page=1;
+let sel=new Set(), delTarget=null, pendingImp=null, ovdOnly=false;
+let todayFilterOn = false;
+let sChart=null, cChart=null, chartsInit=false;
+let team=[], cfg=null;
+
+// ── Hardcoded config (no setup needed) ────────────────────
+const HARDCODED_CFG={
+  apiKey:"AIzaSyBvHRHyyyqBpzhcekEQjDDqDrrg49nAQpw",
+  authDomain:"dh-blattner-tracker.firebaseapp.com",
+  databaseURL:"https://dh-blattner-tracker-default-rtdb.firebaseio.com",
+  projectId:"dh-blattner-tracker",
+  storageBucket:"dh-blattner-tracker.firebasestorage.app",
+  messagingSenderId:"152062914141",
+  appId:"1:152062914141:web:63c4f12740d2508fc427b4"
+};
+const HARDCODED_TEAM=[
+  {name:"Uma Paluru",email:"upaluru@blattnerenergy.com"},
+  {name:"Team Member 2",email:""},
+  {name:"Team Member 3",email:""}
+];
+
+// ── Setup & Firebase init ──────────────────────────────────
+window.onload=function(){
+  // Always use hardcoded config — no setup wizard needed
+  cfg=HARDCODED_CFG;
+  const saved=localStorage.getItem(CFG_KEY);
+  if(saved){
+    try{ const parsed=JSON.parse(saved); team=parsed.team||HARDCODED_TEAM; }
+    catch(e){ team=HARDCODED_TEAM; }
+  } else { team=HARDCODED_TEAM; }
+  initFirebase(cfg);
+  hideSetup();
+};
+
+function showSetup(){ document.getElementById('setup').classList.remove('hidden'); }
+function hideSetup(){ document.getElementById('setup').classList.add('hidden'); }
+
+function addTeamRow(ctx){
+  const container=document.getElementById(ctx==='settings'?'settingsTeam':'teamInputs');
+  const div=document.createElement('div'); div.className='team-row';
+  div.innerHTML='<input placeholder="Full name"><input placeholder="Email (optional)">';
+  container.appendChild(div);
+}
+
+function saveSetup(){
+  const raw=document.getElementById('configInput').value.trim();
+  const err=document.getElementById('setupError');
+  err.style.display='none';
+  let firebaseConfig=null;
+  try{
+    // Extract the object literal
+    const match=raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('Could not find config object');
+    // Convert to valid JSON
+    const jsonStr=match[0]
+      .replace(/([{,]\s*)(\w+)\s*:/g,'$1"$2":')
+      .replace(/:\s*"([^"]*)"/g,(m,v)=>':"'+v+'"');
+    firebaseConfig=JSON.parse(jsonStr);
+    if(!firebaseConfig.apiKey||!firebaseConfig.databaseURL) throw new Error('Missing apiKey or databaseURL');
+  } catch(e){
+    err.textContent='❌ Could not read config: '+e.message+'. Make sure you pasted the full firebaseConfig block.';
+    err.style.display='block'; return;
+  }
+  // Gather team
+  const rows=document.querySelectorAll('#teamInputs .team-row');
+  const newTeam=[];
+  rows.forEach(r=>{
+    const [nameIn,emailIn]=r.querySelectorAll('input');
+    if(nameIn.value.trim()) newTeam.push({name:nameIn.value.trim(),email:emailIn.value.trim()});
+  });
+  if(!newTeam.length){ err.textContent='❌ Add at least one team member.'; err.style.display='block'; return; }
+  team=newTeam; cfg=firebaseConfig;
+  localStorage.setItem(CFG_KEY,JSON.stringify({firebase:firebaseConfig,team:newTeam}));
+  initFirebase(firebaseConfig);
+  hideSetup();
+}
+
+function initFirebase(firebaseConfig){
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db=firebase.database();
+    dataRef=db.ref('lines');
+    dataRef.on('value',snap=>{
+      data=snap.val()||{};
+      refresh();
+      document.getElementById('connLabel').textContent='Live';
+      document.querySelector('.pulse').style.background='#059669';
+    },err=>{
+      console.error(err);
+      document.getElementById('connLabel').textContent='Offline';
+      document.querySelector('.pulse').style.background='#dc2626';
+    });
+    db.ref('.info/connected').on('value',s=>{
+      const live=s.val()===true;
+      document.getElementById('connLabel').textContent=live?'Live':'Reconnecting…';
+      document.querySelector('.pulse').style.background=live?'#059669':'#d97706';
+    });
+    populateDropdowns();
+    initTrades();
+    initBudgets();
+  } catch(e){
+    toast('❌ Firebase error: '+e.message);
+  }
+}
+
+// ── Trade Options (Firebase-backed) ───────────────────────
+let tradeOptions = ['Civil','Electrical','Mechanical','Structural','Plumbing','Instrumentation'];
+let tradesRef;
+
+function initTrades() {
+  tradesRef = db.ref('trades');
+  tradesRef.on('value', snap => {
+    const saved = snap.val();
+    if (saved) {
+      tradeOptions = Object.values(saved);
+    }
+    renderTradeDropdowns();
+  });
+  tradesRef.once('value', snap => {
+    if (!snap.exists()) {
+      tradeOptions.forEach(t => tradesRef.push(t));
+    }
+  });
+}
+
+function renderTradeDropdowns() {
+  const opts = ['<option value="">— Select Trade —</option>',
+    ...tradeOptions.map(t => `<option value="${t}">${t}</option>`)
+  ].join('');
+  document.querySelectorAll('.trade-select').forEach(el => {
+    const cur = el.value;
+    el.innerHTML = opts;
+    if (cur) el.value = cur;
+  });
+  // Also refresh budget panel trade select
+  if(typeof renderBudgetPanel==='function'){ const bp=document.getElementById('budgetPb'); if(bp&&bp.classList.contains('open')) renderBudgetPanel(); }
+  // Also update the filter dropdown
+  const flt = document.getElementById('tradeFilter');
+  if (flt) {
+    flt.innerHTML = '<option value="">All Trades</option>' +
+      tradeOptions.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+  // Update the manage trades list in settings
+  const list = document.getElementById('tradeList');
+  if (list) {
+    list.innerHTML = tradeOptions.map(t =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;background:#f8f9fb;border-radius:4px;margin-bottom:4px;font-size:13px">
+        <span>${t}</span>
+        <button onclick="deleteTrade('${t}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:12px;font-weight:700">✕</button>
+      </div>`
+    ).join('') || '<div style="color:var(--muted);font-size:13px">No trades yet.</div>';
+  }
+}
+
+function addTrade() {
+  const inp = document.getElementById('newTradeInp');
+  if (!inp) return;
+  const name = inp.value.trim();
+  if (!name) return;
+  if (tradeOptions.includes(name)) { toast('Trade already exists'); return; }
+  db.ref('trades').push(name);
+  inp.value = '';
+  toast('Trade added: ' + name);
+}
+
+function deleteTrade(name) {
+  db.ref('trades').once('value', snap => {
+    snap.forEach(child => {
+      if (child.val() === name) db.ref('trades/' + child.key).remove();
+    });
+  });
+}
+
+// ── Dropdowns ─────────────────────────────────────────────
+function populateDropdowns(){
+  const teamNames=team.map(t=>`<option>${esc(t.name)}</option>`).join('');
+  document.getElementById('f_cat').innerHTML='<option value="">--</option>'+CATS.map(c=>`<option>${c}</option>`).join('');
+  document.getElementById('f_uom').innerHTML='<option value="">--</option>'+UOMS.map(u=>`<option>${u}</option>`).join('');
+  document.getElementById('f_prep').innerHTML='<option value="">-- Select --</option>'+teamNames;
+  const impPrep=document.getElementById('impPrep');
+  if(impPrep) impPrep.innerHTML='<option value="">-- Select --</option>'+teamNames;
+  document.getElementById('f_rd').value=today();
+}
+
+function today(){ return new Date().toISOString().split('T')[0]; }
+
+// ── Refresh ────────────────────────────────────────────────
+function refresh(){
+  updateStats(); updateInfo(); populateFilters(); filterTable();
+  if(chartsInit) renderCharts();
+}
+
+function getArray(){ return Object.entries(data).map(([k,v])=>({...v,_key:k})); }
+
+function isOvd(d){
+  if(!d.required_date||d.status==='Received'||d.status==='Cancelled') return false;
+  return d.required_date<today();
+}
+
+function updateStats(){
+  const arr=getArray();
+  const todayStr2 = new Date().toISOString().split('T')[0];
+  const todayRcv = arr.filter(r => r.dateReceived === todayStr2).length;
+  document.getElementById('sTotal').textContent=arr.length;
+  document.getElementById('sOrd').textContent=arr.filter(x=>x.status==='Ordered').length;
+  document.getElementById('sTrs').textContent=arr.filter(x=>x.status==='In Transit').length;
+  document.getElementById('sRcv').textContent=arr.filter(x=>x.status==='Received'||x.status==='Partial').length;
+  const rcvSub=document.getElementById('sRcvSub');
+  if(rcvSub) rcvSub.textContent=todayRcv>0?`on site · ${todayRcv} today`:'on site';
+  const od=arr.filter(isOvd);
+  document.getElementById('sOvd').textContent=od.length;
+  const sh=arr.filter(x=>x.qty_received!==''&&x.qty_received!=null&&parseFloat(x.qty_received)<parseFloat(x.qty||0)).length;
+  document.getElementById('sSh').textContent=sh;
+  const total=arr.reduce((s,x)=>s+parseFloat(x.qty||0)*parseFloat(x.unit_cost||0),0);
+  document.getElementById('sVal').textContent='$'+fmt$(total);
+  const banner=document.getElementById('ovdBanner');
+  if(od.length>0){
+    banner.classList.remove('hidden');
+    document.getElementById('ovdCnt').textContent=od.length;
+    document.getElementById('ovdLabel').textContent=`item${od.length===1?'':'s'} past required date — not yet received`;
+  } else banner.classList.add('hidden');
+}
+
+function updateInfo(){
+  const arr=getArray();
+  const projs=[...new Set(arr.map(d=>d.project_num).filter(Boolean))];
+  const reqs=[...new Set(arr.map(d=>d.req_num).filter(Boolean))];
+  document.getElementById('projectInfo').textContent=
+    arr.length?`Project ${projs.join(', ')||'—'} · ${reqs.length} REQ(s) · ${arr.length} line(s)`
+    :'No data yet — import a REQ Excel or add a line below';
+}
+
+function populateFilters(){
+  const arr=getArray();
+  const cats=[...new Set(arr.map(d=>d.category).filter(Boolean))].sort();
+  const reqs=[...new Set(arr.map(d=>d.req_num).filter(Boolean))].sort();
+  const cs=document.getElementById('fCat'),rs=document.getElementById('fReq');
+  const cv=cs.value,rv=rs.value;
+  cs.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option>${esc(c)}</option>`).join('');
+  rs.innerHTML='<option value="">All REQs</option>'+reqs.map(r=>`<option>${esc(r)}</option>`).join('');
+  cs.value=cv; rs.value=rv;
+}
+
+// ── Analytics ─────────────────────────────────────────────
+function togglePanel(id){
+  const b=document.getElementById(id+'Body'),c=document.getElementById(id+'Chev');
+  b.classList.toggle('open'); c.classList.toggle('open',b.classList.contains('open'));
+  if(id==='analytics'&&b.classList.contains('open')){chartsInit=true; renderCharts();}
+}
+function toggleBudgetPanel(){
+  const b=document.getElementById('budgetPb'),c=document.getElementById('budgetChev');
+  if(!b||!c)return;
+  b.classList.toggle('open'); c.classList.toggle('open',b.classList.contains('open'));
+  if(b.classList.contains('open')) renderBudgetPanel();
+}
+
+function renderCharts(){
+  const arr=getArray();
+  const statuses=['Ordered','In Transit','Received','Partial','Cancelled'];
+  const stCounts=statuses.map(s=>arr.filter(d=>d.status===s).length);
+  const stColors=['#0284c7','#d97706','#059669','#7c3aed','#9ca3af'];
+  if(sChart){sChart.data.datasets[0].data=stCounts;sChart.update();}
+  else sChart=new Chart(document.getElementById('statusChart'),{type:'doughnut',data:{labels:statuses,datasets:[{data:stCounts,backgroundColor:stColors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:6}}}}});
+  const catS={};
+  arr.forEach(d=>{const c=d.category||'Other',v=parseFloat(d.qty||0)*parseFloat(d.unit_cost||0);if(v>0)catS[c]=(catS[c]||0)+v;});
+  const sorted=Object.entries(catS).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const cL=sorted.map(([c])=>c),cV=sorted.map(([,v])=>v);
+  if(cChart){cChart.data.labels=cL;cChart.data.datasets[0].data=cV;cChart.data.datasets[0].backgroundColor=cL.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]);cChart.update();}
+  else cChart=new Chart(document.getElementById('catChart'),{type:'bar',data:{labels:cL,datasets:[{label:'Spend ($)',data:cV,backgroundColor:cL.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'$'+fmt$(v),font:{size:10}},grid:{color:'#f0f2f5'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+}
+
+// ── Filter & Sort ─────────────────────────────────────────
+function toggleOvd(){
+  ovdOnly=!ovdOnly;
+  document.getElementById('ovdBtn').classList.toggle('active',ovdOnly);
+  document.getElementById('ovdAction').textContent=ovdOnly?'← Show all':'Show overdue only →';
+  filterTable();
+}
+
+function toggleTodayFilter() {
+  todayFilterOn = !todayFilterOn;
+  const btn = document.getElementById('todayDelivBtn');
+  if (btn) {
+    btn.style.background = todayFilterOn ? '#059669' : '#d1fae5';
+    btn.style.color = todayFilterOn ? '#fff' : '#059669';
+    btn.style.borderColor = todayFilterOn ? '#059669' : '#6ee7b7';
+  }
+  filterTable();
+}
+
+function filterTable(){
+  const arr=getArray();
+  const q=document.getElementById('search').value.toLowerCase();
+  const st=document.getElementById('fSt').value,ca=document.getElementById('fCat').value,re=document.getElementById('fReq').value;
+  const trdF=document.getElementById('tradeFilter')?.value||'';
+  const todayStr = new Date().toISOString().split('T')[0];
+  filtered=arr.filter(d=>{
+    if(ovdOnly&&!isOvd(d)) return false;
+    if(todayFilterOn&&d.dateReceived!==todayStr) return false;
+    if(st&&d.status!==st) return false;
+    if(ca&&d.category!==ca) return false;
+    if(re&&d.req_num!==re) return false;
+    if(trdF&&d.trade!==trdF) return false;
+    if(q){const hay=[d.req_num,d.desc1,d.desc2,d.part_num,d.notes,d.po_num,d.project_task,d.category,d.project_num,d.prepared_by].filter(Boolean).join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    return true;
+  });
+  filtered.sort((a,b)=>{
+    let va=a[sortCol]??'',vb=b[sortCol]??'';
+    if(!isNaN(+va)&&!isNaN(+vb)){va=+va;vb=+vb;}
+    return va<vb?-sortDir:va>vb?sortDir:0;
+  });
+  page=1; renderTable();
+}
+function sortBy(col){sortDir=sortCol===col?-sortDir:-1;sortCol=col;filterTable();}
+
+// ── Render ────────────────────────────────────────────────
+function renderTable(){
+  const start=(page-1)*PAGE,pg=filtered.slice(start,start+PAGE);
+  const tb=document.getElementById('tbody');
+  document.getElementById('tTitle').textContent=`All Materials (${filtered.length}${ovdOnly?' — OVERDUE':''})`;
+  document.getElementById('pagInfo').textContent=filtered.length?`Showing ${start+1}–${Math.min(start+PAGE,filtered.length)} of ${filtered.length}`:'0 records';
+  if(!pg.length){
+    tb.innerHTML=`<tr><td colspan="21"><div class="empty"><div class="ei">${getArray().length?'🔍':'📋'}</div><p>${getArray().length?'No results.':'No data yet. Import a REQ Excel or add lines manually.'}</p></div></td></tr>`;
+  } else {
+    tb.innerHTML=pg.map(d=>{
+      const qty=parseFloat(d.qty)||0,cost=parseFloat(d.unit_cost)||0,total=qty*cost;
+      const rcvd=(d.qty_received!==''&&d.qty_received!=null)?parseFloat(d.qty_received):null;
+      const diff=rcvd!==null?rcvd-qty:null;
+      const varCell=diff===null?'<span class="vna">—</span>':diff<0?`<span class="vn">${diff}</span>`:`<span class="vo">${diff>0?'+':''}${diff}</span>`;
+      const ovd=isOvd(d), isSel=sel.has(d._key);
+      return `<tr class="${ovd?'ovd-row':''}">
+        <td><input type="checkbox" ${isSel?'checked':''} onchange="toggleSel('${d._key}',this.checked)"></td>
+        <td style="font-weight:700;color:var(--primary);font-family:monospace;font-size:11px">${esc(d.req_num)||'—'}<div style="font-size:9px;color:var(--muted);margin-top:1px">${d.lastEditedBy?'✏️ '+d.lastEditedBy:''}${d.lastEditedAt?' · '+new Date(d.lastEditedAt).toLocaleDateString():''}</div></td>
+        <td style="white-space:nowrap">${d.req_date||'—'}</td>
+        <td>${esc(d.project_task)||'—'}</td>
+        <td><span style="background:#f3f4f6;color:#374151;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:700">${esc(d.category)||'—'}</span></td>
+        <td style="font-family:monospace;font-size:11px;color:var(--muted)">${esc(d.part_num)||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${esc(d.vendor)||'—'}</td>
+        <td>${d.trade||'—'}</td>
+        <td style="min-width:150px">
+          <div style="font-weight:500">${esc(d.desc1)||'—'}</div>
+          ${d.desc2?`<div style="font-size:11px;color:var(--muted)">${esc(d.desc2)}</div>`:''}
+          ${ovd?'<span class="ovd-pill">OVERDUE</span>':''}
+        </td>
+        <td style="text-align:right">${qty||'—'}</td>
+        <td>${esc(d.uom)||'—'}</td>
+        <td style="text-align:right;font-family:monospace">${cost?'$'+cost.toLocaleString('en-US',{minimumFractionDigits:2}):'—'}</td>
+        <td style="text-align:right;font-family:monospace">${total?'$'+fmt$(total):'—'}</td>
+        <td style="white-space:nowrap${ovd?';color:var(--danger);font-weight:700':''}">${d.required_date||'—'}</td>
+        <td><select class="isel" onchange="onStatusChange('${d._key}',this.value,'${d.dateReceived||''}')">${STS.map(s=>`<option${d.status===s?' selected':''}>${s}</option>`).join('')}</select></td>
+        <td style="white-space:nowrap;font-size:11px">${d.dateReceived ? `<span style="background:#d1fae5;color:#059669;padding:2px 6px;border-radius:10px;font-weight:700">${d.dateReceived}</span>` : '—'}</td>
+        <td><input class="iinp" style="width:80px" value="${esc(d.po_num||'')}" placeholder="PO #" onchange="updateLine('${d._key}','po_num',this.value)"></td>
+        <td style="text-align:right"><input class="iinp" style="width:55px;text-align:right" type="number" value="${rcvd!==null?rcvd:''}" placeholder="—" onchange="updateLine('${d._key}','qty_received',this.value)"></td>
+        <td style="text-align:right">${varCell}</td>
+        <td>${d.prepared_by?`<span class="who-badge">${esc(d.prepared_by)}</span>`:'—'}</td>
+        <td style="max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(d.notes||'')}">${esc(d.notes)||'—'}</td>
+        <td style="white-space:nowrap"><button class="cmnt-btn" onclick="openCmnt('${d._key}','${(d.desc1||'').replace(/'/g,'')}')" title="Comments">💬<span class="cmnt-badge" id="cb-${d._key}" style="display:none">0</span></button> <button class="btn-danger-sm" onclick="startDel('${d._key}')">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const sa=document.getElementById('selAll');
+  const pgKeys=pg.map(d=>d._key);
+  sa.checked=pgKeys.length>0&&pgKeys.every(k=>sel.has(k));
+  sa.indeterminate=pgKeys.some(k=>sel.has(k))&&!sa.checked;
+  renderPag();
+  // Fetch comment counts
+  pg.forEach(d=>{
+    db.ref('comments/'+d._key).once('value',s=>{
+      const cnt=s.numChildren();
+      const badge=document.getElementById('cb-'+d._key);
+      if(badge){badge.style.display=cnt>0?'flex':'none';badge.textContent=cnt;}
+    });
+  });
+  renderBudgetPanel();
+}
+
+function renderPag(){
+  const pages=Math.ceil(filtered.length/PAGE);
+  const btns=document.getElementById('pbtns');
+  if(pages<=1){btns.innerHTML='';return;}
+  let h='';
+  for(let p=1;p<=pages;p++){
+    if(p===1||p===pages||Math.abs(p-page)<=1) h+=`<button class="pb2${p===page?' active':''}" onclick="goPage(${p})">${p}</button>`;
+    else if(Math.abs(p-page)===2) h+=`<span style="padding:3px 2px;color:var(--muted)">…</span>`;
+  }
+  btns.innerHTML=h;
+}
+function goPage(p){page=p;renderTable();}
+
+// ── Selection ─────────────────────────────────────────────
+function toggleSel(key,checked){checked?sel.add(key):sel.delete(key);updateBulkBar();}
+function toggleSelAll(cb){
+  const start=(page-1)*PAGE,pg=filtered.slice(start,start+PAGE);
+  pg.forEach(d=>cb.checked?sel.add(d._key):sel.delete(d._key));
+  updateBulkBar(); renderTable();
+}
+function clearSel(){sel.clear();updateBulkBar();renderTable();}
+function updateBulkBar(){
+  const bar=document.getElementById('bulkBar');
+  bar.classList.toggle('show',sel.size>0);
+  document.getElementById('bulkCnt').textContent=`${sel.size} line${sel.size===1?'':'s'} selected`;
+}
+
+async function applyBulkSt(){const v=document.getElementById('bStSel').value;if(!v){toast('⚠️ Select a status');return;}await bulkUpdate('status',v);toast(`✓ Status → "${v}" for ${sel.size} line(s)`);}
+async function applyBulkPo(){const v=document.getElementById('bPoInp').value.trim();if(!v){toast('⚠️ Enter a PO #');return;}await bulkUpdate('po_num',v);toast(`✓ PO # "${v}" applied to ${sel.size} line(s)`);}
+async function applyBulkRcv(){const v=document.getElementById('bRcvInp').value;if(v===''){toast('⚠️ Enter a qty');return;}await bulkUpdate('qty_received',v);toast(`✓ Rcvd qty applied to ${sel.size} line(s)`);}
+
+async function bulkUpdate(field,value){
+  const updates={};
+  sel.forEach(key=>{updates[`lines/${key}/${field}`]=value;});
+  await db.ref().update(updates);
+}
+
+// ── CRUD ─────────────────────────────────────────────────
+function addLine(){
+  const g=id=>document.getElementById(id).value.trim();
+  if(!g('f_rn')){toast('⚠️ REQ # is required');return;}
+  if(!g('f_d1')){toast('⚠️ Description 1 is required');return;}
+  const line={req_num:g('f_rn'),req_date:g('f_rd'),project_num:g('f_pn'),project_task:g('f_pt'),
+    prepared_by:g('f_prep'),category:g('f_cat'),part_num:g('f_part'),vendor:g('fVendor'),desc1:g('f_d1'),
+    desc2:g('f_d2'),qty:g('f_qty'),uom:g('f_uom'),unit_cost:g('f_uc'),
+    trade:g('fTrade'),required_date:g('f_req'),calloff_date:g('f_co'),notes:g('f_notes'),
+    status:g('f_st'),po_num:g('f_po'),qty_received:g('f_qr'),received_date:g('f_rcvd'),
+    dateReceived:document.getElementById('fDateReceived')?.value||'',
+    lastEditedBy:team.length>0?team[0].name:'Unknown',lastEditedAt:Date.now(),
+    _added:new Date().toISOString()};
+  dataRef.push(line);
+  toast('✓ Line added');
+}
+
+function onStatusChange(key, val, currentDateReceived) {
+  updateLine(key, 'status', val);
+  if (val === 'Received' && !currentDateReceived) {
+    const today = new Date().toISOString().split('T')[0];
+    updateLine(key, 'dateReceived', today);
+  }
+}
+
+function updateLine(key,field,value){
+  db.ref(`lines/${key}`).update({[field]:value,lastEditedBy:team.length>0?team[0].name:'Unknown',lastEditedAt:Date.now()});
+}
+
+function startDel(key){delTarget=key;document.getElementById('delMo').classList.add('open');}
+function confirmDel(){if(delTarget){db.ref(`lines/${delTarget}`).remove();toast('Line deleted');}closeModal('delMo');delTarget=null;}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+function clearForm(){
+  ['f_rn','f_pn','f_pt','f_part','fVendor','f_d1','f_d2','f_qty','f_uc','f_req','f_co','f_notes','f_po','f_qr','f_rcvd']
+    .forEach(id=>document.getElementById(id).value='');
+  ['f_cat','f_uom','f_prep'].forEach(id=>document.getElementById(id).value='');
+  if(document.getElementById('fTrade')) document.getElementById('fTrade').value='';
+  document.getElementById('f_st').value='Ordered';
+  document.getElementById('f_rd').value=today();
+  if(document.getElementById('fDateReceived')) document.getElementById('fDateReceived').value='';
+}
+
+// ── Settings ─────────────────────────────────────────────
+function openSettings(){
+  const c=document.getElementById('settingsTeam');
+  c.innerHTML='';
+  team.forEach(t=>{
+    const div=document.createElement('div');div.className='team-row';
+    div.innerHTML=`<input placeholder="Full name" value="${esc(t.name)}"><input placeholder="Email (optional)" value="${esc(t.email||'')}">`;
+    c.appendChild(div);
+  });
+  document.getElementById('settingsMo').classList.add('open');
+}
+function saveSettings(){
+  const rows=document.querySelectorAll('#settingsTeam .team-row');
+  const newTeam=[];
+  rows.forEach(r=>{
+    const [ni,ei]=r.querySelectorAll('input');
+    if(ni.value.trim()) newTeam.push({name:ni.value.trim(),email:ei.value.trim()});
+  });
+  if(!newTeam.length){toast('⚠️ At least one team member required');return;}
+  team=newTeam;
+  const saved=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');
+  saved.team=newTeam;
+  localStorage.setItem(CFG_KEY,JSON.stringify(saved));
+  populateDropdowns();
+  closeModal('settingsMo');
+  toast('✓ Team updated');
+}
+
+// ── Print & Export ────────────────────────────────────────
+function printReport(){window.print();}
+function exportCSV(){
+  const cols=['req_num','req_date','project_num','project_task','category','part_num','vendor','trade','desc1','desc2','qty','uom','unit_cost','required_date','calloff_date','status','po_num','qty_received','received_date','prepared_by','notes','dateReceived'];
+  const hdrs=['REQ #','REQ Date','Project #','Project Task','Category','Part #','Vendor','Trade','Desc 1','Desc 2','QTY','UOM','Unit Cost','Required Date','Call-off Date','Status','PO #','QTY Received','Received Date','Prepared By','Notes','Date Received'];
+  const rows=[hdrs,...filtered.map(d=>cols.map(c=>`"${(d[c]??'').toString().replace(/"/g,'""')}"` ))];
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n'));a.download='ejde_tracker.csv';a.click();toast('CSV exported');
+}
+
+// ── XLSX Parser (pure JS) ─────────────────────────────────
+function handleFile(input){const f=input.files[0];input.value='';if(!f)return;if(!f.name.toLowerCase().endsWith('.xlsx')){toast('⚠️ Select a .xlsx file');return;}const r=new FileReader();r.onload=e=>processXlsx(e.target.result,f.name);r.readAsArrayBuffer(f);}
+async function processXlsx(buffer,fileName){try{toast('⏳ Reading…');const res=await parseXlsx(buffer);showImpPreview(res,fileName);}catch(err){console.error(err);toast('❌ '+(err.message||'Could not read file'));}}
+
+async function parseXlsx(buffer){
+  const bytes=new Uint8Array(buffer),view=new DataView(buffer),dec=new TextDecoder('utf-8');
+  let eocd=-1;
+  for(let i=bytes.length-22;i>=Math.max(0,bytes.length-22-65535);i--){if(view.getUint32(i,true)===0x06054B50){eocd=i;break;}}
+  if(eocd<0)throw new Error('Not a valid xlsx file');
+  const cdOff=view.getUint32(eocd+16,true),cdSz=view.getUint32(eocd+12,true);
+  const fm={};let pos=cdOff;
+  while(pos<cdOff+cdSz&&pos<bytes.length-4){
+    if(view.getUint32(pos,true)!==0x02014B50)break;
+    const comp=view.getUint16(pos+10,true),cmpSz=view.getUint32(pos+20,true);
+    const fnLen=view.getUint16(pos+28,true),exLen=view.getUint16(pos+30,true),cmLen=view.getUint16(pos+32,true);
+    const lhOff=view.getUint32(pos+42,true),name=dec.decode(bytes.slice(pos+46,pos+46+fnLen));
+    fm[name]={lhOff,comp,cmpSz};pos+=46+fnLen+exLen+cmLen;
+  }
+  async function readEntry(name){
+    const e=fm[name]||fm[name.replace(/^\//,'')];if(!e)return null;
+    const lh=e.lhOff;if(view.getUint32(lh,true)!==0x04034B50)return null;
+    const fnLen=view.getUint16(lh+26,true),exLen=view.getUint16(lh+28,true);
+    const dStart=lh+30+fnLen+exLen,raw=bytes.slice(dStart,dStart+e.cmpSz);
+    if(e.comp===0)return dec.decode(raw);
+    if(e.comp===8){
+      const ds=new DecompressionStream('deflate-raw'),w=ds.writable.getWriter();w.write(raw);w.close();
+      const r=ds.readable.getReader(),chunks=[];
+      for(;;){const{done,value}=await r.read();if(done)break;chunks.push(value);}
+      const tot=chunks.reduce((s,c)=>s+c.length,0),out=new Uint8Array(tot);let off=0;
+      for(const c of chunks){out.set(c,off);off+=c.length;}return dec.decode(out);
+    }return null;
+  }
+  const wbXml=await readEntry('xl/workbook.xml'),relsXml=await readEntry('xl/_rels/workbook.xml.rels');
+  const wbDoc=new DOMParser().parseFromString(wbXml||'<r/>','application/xml');
+  const relsDoc=new DOMParser().parseFromString(relsXml||'<r/>','application/xml');
+  const relMap={};relsDoc.querySelectorAll('Relationship').forEach(r=>{relMap[r.getAttribute('Id')]=r.getAttribute('Target');});
+  const sp={};
+  wbDoc.querySelectorAll('sheet').forEach(s=>{
+    const name=s.getAttribute('name');
+    const rid=s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||s.getAttribute('r:id');
+    const tgt=relMap[rid];if(!tgt)return;
+    const fp=tgt.startsWith('../')?tgt.slice(3):tgt.startsWith('/')?tgt.slice(1):'xl/'+tgt;
+    sp[name]=fp;
+  });
+  if(!sp['Field Requisition'])sp['Field Requisition']='xl/worksheets/sheet2.xml';
+  if(!sp['Contact & Delivery Information'])sp['Contact & Delivery Information']='xl/worksheets/sheet1.xml';
+  const ssXml=await readEntry('xl/sharedStrings.xml');const ss=[];
+  if(ssXml){new DOMParser().parseFromString(ssXml,'application/xml').querySelectorAll('si').forEach(si=>{const rs=si.querySelectorAll('r > t');ss.push(rs.length?[...rs].map(t=>t.textContent).join(''):(si.querySelector('t')?.textContent||''));});}
+  function cv(c){const v=c?.querySelector('v')?.textContent;if(v==null||v==='')return'';return c.getAttribute('t')==='s'?(ss[+v]||''):v;}
+  const contactXml=await readEntry(sp['Contact & Delivery Information']);
+  const ci={};
+  if(contactXml){new DOMParser().parseFromString(contactXml,'application/xml').querySelectorAll('row').forEach(row=>{const cells={};row.querySelectorAll('c').forEach(c=>{cells[c.getAttribute('r').replace(/\d+/g,'')]=cv(c);});const lbl=(cells['B']||'').toLowerCase(),val=cells['C']||'';if(lbl.includes('project name'))ci.projectName=val;if(lbl.includes('project #'))ci.projectNum=val;if(lbl.includes('requisitioner'))ci.requisitioner=val;if(lbl.includes('description'))ci.description=val;if(lbl.includes('date'))ci.date=excelDate(val);});}
+  const fieldXml=await readEntry(sp['Field Requisition']);const lines=[];
+  if(fieldXml){new DOMParser().parseFromString(fieldXml,'application/xml').querySelectorAll('row').forEach(row=>{const rn=parseInt(row.getAttribute('r'));if(rn<=1)return;const cells={};row.querySelectorAll('c').forEach(c=>{cells[c.getAttribute('r').replace(/\d+/g,'')]=cv(c);});const desc1=cells['D']||'',qty=cells['G']||'',pn=cells['C']||'';if(!desc1&&!qty&&!pn)return;lines.push({project_task:cells['A']||'',category:cells['B']||'',part_num:pn,desc1,desc2:cells['E']||'',report_code:cells['F']||'',qty,uom:cells['H']||'',unit_cost:cells['I']||'',required_date:excelDate(cells['J']),calloff_date:excelDate(cells['K']),notes:cells['L']||'',status:'Ordered',po_num:'',qty_received:'',received_date:'',req_num:'',req_date:ci.date||today(),project_num:ci.projectNum||''});});}
+  if(!lines.length)throw new Error('No data rows found in Field Requisition sheet.');
+  return{contactInfo:ci,lines};
+}
+function excelDate(s){if(!s||isNaN(+s))return'';try{return new Date((parseFloat(s)-25569)*86400000).toISOString().split('T')[0];}catch{return'';}}
+
+function showImpPreview({contactInfo,lines},fileName){
+  pendingImp={contactInfo,lines};const info=contactInfo;
+  document.getElementById('prevInfo').innerHTML=`<p>📂 <strong>${esc(fileName)}</strong></p>${info.projectName?`<p>🏗️ <strong>Project:</strong> ${esc(info.projectName)} ${info.projectNum?'(#'+esc(info.projectNum)+')':''}</p>`:''} ${info.requisitioner?`<p>👤 <strong>Requisitioner:</strong> ${esc(info.requisitioner)}</p>`:''} ${info.date?`<p>📅 <strong>REQ Date:</strong> ${esc(info.date)}</p>`:''}<p>✅ <strong>${lines.length} line(s)</strong> found</p>`;
+  const arr=getArray(),nums=arr.map(d=>d.req_num).filter(Boolean).map(n=>parseInt(n.replace(/\D/g,''))||0).filter(Boolean);
+  document.getElementById('impRn').value='REQ-'+String(Math.max(...nums,0)+1).padStart(3,'0');
+  const impPrep=document.getElementById('impPrep');
+  if(impPrep)impPrep.innerHTML='<option value="">-- Select --</option>'+team.map(t=>`<option>${esc(t.name)}</option>`).join('');
+  if(info.requisitioner){const match=team.find(t=>t.name.toLowerCase()===info.requisitioner.toLowerCase());if(match&&impPrep)impPrep.value=match.name;}
+  const prev=lines.slice(0,5);
+  document.getElementById('prevTable').innerHTML=`<tr><th>Task</th><th>Cat</th><th>Part #</th><th>Description</th><th>Qty</th><th>UOM</th><th>Cost</th><th>Req Date</th></tr>${prev.map(l=>`<tr><td>${esc(l.project_task)||'—'}</td><td>${esc(l.category)||'—'}</td><td style="font-family:monospace">${esc(l.part_num)||'—'}</td><td>${esc(l.desc1)||'—'}</td><td style="text-align:right">${l.qty||'—'}</td><td>${esc(l.uom)||'—'}</td><td style="text-align:right">${l.unit_cost?'$'+parseFloat(l.unit_cost).toLocaleString('en-US',{minimumFractionDigits:2}):'—'}</td><td>${l.required_date||'—'}</td></tr>`).join('')}${lines.length>5?`<tr><td colspan="8" style="text-align:center;color:var(--muted);font-style:italic">…and ${lines.length-5} more</td></tr>`:''}`;
+  valImp();
+  document.getElementById('importMo').classList.add('open');
+}
+function valImp(){
+  const val=document.getElementById('impRn').value.trim();
+  const btn=document.getElementById('confImpBtn'),warn=document.getElementById('impWarn');
+  const arr=getArray(),exists=val&&arr.some(d=>d.req_num===val);
+  btn.disabled=!val;
+  warn.style.display=exists?'block':'none';
+  if(exists)warn.textContent=`⚠️ REQ # "${val}" already exists. Importing adds more lines.`;
+  btn.textContent=val?`Import ${pendingImp?.lines?.length||0} Lines`:'Import Lines';
+}
+function confirmImport(){
+  if(!pendingImp)return;
+  const reqNum=document.getElementById('impRn').value.trim();
+  const prepBy=document.getElementById('impPrep')?.value||'';
+  if(!reqNum){toast('⚠️ Enter a REQ #');return;}
+  const{contactInfo,lines}=pendingImp;
+  const batch=lines.map(l=>({...l,req_num:reqNum,project_num:l.project_num||contactInfo.projectNum||'',prepared_by:prepBy||contactInfo.requisitioner||'',_added:new Date().toISOString()}));
+  const updates={};
+  batch.forEach(l=>{const key=dataRef.push().key;updates[`lines/${key}`]=l;});
+  db.ref().update(updates);
+  closeModal('importMo');pendingImp=null;
+  toast(`✓ Imported ${batch.length} line(s) as ${reqNum}`);
+}
+
+// ── Utilities ─────────────────────────────────────────────
+function esc(s){if(!s)return'';return s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmt$(n){return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.ad
