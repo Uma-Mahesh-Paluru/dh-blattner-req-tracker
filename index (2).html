@@ -4,117 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>D.H. Blattner &amp; Sons REQ Tracker</title>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
-// ── Budget Allocation ────────────────────────────────────
-let budgets = {}; // { tradeName: allocatedAmount }
-let budgetsRef;
-
-function initBudgets() {
-  budgetsRef = db.ref('budgets');
-  budgetsRef.on('value', snap => {
-    budgets = snap.val() || {};
-    renderBudgetPanel();
-  });
-}
-
-function saveBudget(trade) {
-  const inp = document.getElementById('binp-' + trade.replace(/\s+/g,'_'));
-  if (!inp) return;
-  const val = parseFloat(inp.value) || 0;
-  db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(val);
-  showToast('Budget saved for ' + trade);
-}
-function saveSelectedBudget() {
-  const tradeEl = document.getElementById('budgetTradeSelect');
-  const amtEl = document.getElementById('budgetAmtInp');
-  if (!tradeEl || !amtEl) return;
-  const trade = tradeEl.value;
-  const amt = parseFloat(amtEl.value) || 0;
-  if (!trade) { showToast('Please select a trade first'); return; }
-  if (!amt) { showToast('Please enter a budget amount'); return; }
-  db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(amt);
-  amtEl.value = '';
-  showToast('Budget saved: ' + trade + ' = $' + amt.toLocaleString());
-}
-
-function renderBudgetPanel() {
-  // Calculate spend per trade from data object
-  const spendByTrade = {};
-  getArray().forEach(r => {
-    const t = r.trade || r.category || 'Unassigned';
-    const cost = parseFloat(r.unit_cost || 0) * parseFloat(r.qty || 1);
-    spendByTrade[t] = (spendByTrade[t] || 0) + cost;
-  });
-
-  // Get all trades (union of tradeOptions + keys that have spend)
-  const defaultTrades=['Civil','Electrical','Mechanical','Structural','Plumbing','Instrumentation'];
-  const loadedTrades=(typeof tradeOptions!=='undefined'&&tradeOptions.length>0)?tradeOptions:defaultTrades;
-  const allTrades=Array.from(new Set([...loadedTrades,...Object.keys(spendByTrade)]));
-  if(allTrades.length===0)allTrades.push(...defaultTrades);
-
-  let totalBudget = 0, totalSpent = 0;
-  const rows = allTrades.map(trade => {
-    const key = trade.replace(/\s+/g,'_');
-    const budget = parseFloat(budgets[key] || 0);
-    const spent = spendByTrade[trade] || 0;
-    const remaining = budget - spent;
-    const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
-    const over = spent > budget && budget > 0;
-    totalBudget += budget;
-    totalSpent += spent;
-
-    const barColor = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warn)' : 'var(--success)';
-
-    return `<tr class="${over ? 'over-budget' : ''}">
-      <td><strong>${trade}</strong>${over ? ' <span style="color:var(--danger);font-size:10px;font-weight:700">⚠ OVER</span>' : ''}</td>
-      <td>$${budget.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
-      <td style="color:${spent>0?'var(--warn)':'var(--muted)'}">$${spent.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
-      <td style="color:${over?'var(--danger)':remaining>0?'var(--success)':'var(--muted)'}">$${remaining.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
-      <td>
-        <div class="prog-bar">
-          <div class="prog-fill" style="width:${pct}%;background:${barColor}"></div>
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(pct)}%</div>
-      </td>
-      <td>
-        <div style="display:flex;gap:5px;align-items:center">
-          <input class="budg-inp" id="binp-${key}" type="number" min="0" step="1000" placeholder="0" value="${budget||''}">
-          <button class="budg-save" onclick="saveBudget('${trade}')">Save</button>
-        </div>
-      </td>
-    </tr>`;
-  });
-
-  const body = document.getElementById('budgetBody');
-  if (body) body.innerHTML = rows.join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No trades yet. Use the form below to add a budget, or go to ⚙️ Settings to add trades first.</td></tr>';
-  // Populate the quick-add trade select
-  const bts = document.getElementById('budgetTradeSelect');
-  if (bts) {
-    const curVal = bts.value;
-    bts.innerHTML = '<option value="">— Select Trade —</option>' +
-      allTrades.map(t => `<option value="${t}">${t}</option>`).join('');
-    if (curVal) bts.value = curVal;
-  }
-
-  // Update summary cards
-  const remaining = totalBudget - totalSpent;
-  const pctUsed = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
-  const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
-
-  const el = id => document.getElementById(id);
-  if(el('bTotalBudget')) el('bTotalBudget').textContent = fmt(totalBudget);
-  if(el('bTotalSpent')) el('bTotalSpent').textContent = fmt(totalSpent);
-  if(el('bRemaining')) el('bRemaining').textContent = (remaining < 0 ? '-' : '') + fmt(remaining);
-  if(el('bPctUsed')) el('bPctUsed').textContent = pctUsed + '%';
-
-  // Color remaining card red if over budget
-  const remCard = el('bRemainingCard');
-  if(remCard) {
-    remCard.className = 'bcard ' + (remaining < 0 ? 'over' : 'remaining');
-  }
-}
-
-</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -779,6 +669,117 @@ tr.ovd-row td{background:#fff5f5}tr.ovd-row:hover td{background:var(--dbg)}
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Budget Allocation ────────────────────────────────────
+let budgets = {}; // { tradeName: allocatedAmount }
+let budgetsRef;
+
+function initBudgets() {
+  budgetsRef = db.ref('budgets');
+  budgetsRef.on('value', snap => {
+    budgets = snap.val() || {};
+    renderBudgetPanel();
+  });
+}
+
+function saveBudget(trade) {
+  const inp = document.getElementById('binp-' + trade.replace(/\s+/g,'_'));
+  if (!inp) return;
+  const val = parseFloat(inp.value) || 0;
+  db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(val);
+  showToast('Budget saved for ' + trade);
+}
+function saveSelectedBudget() {
+  const tradeEl = document.getElementById('budgetTradeSelect');
+  const amtEl = document.getElementById('budgetAmtInp');
+  if (!tradeEl || !amtEl) return;
+  const trade = tradeEl.value;
+  const amt = parseFloat(amtEl.value) || 0;
+  if (!trade) { showToast('Please select a trade first'); return; }
+  if (!amt) { showToast('Please enter a budget amount'); return; }
+  db.ref('budgets/' + trade.replace(/\s+/g,'_')).set(amt);
+  amtEl.value = '';
+  showToast('Budget saved: ' + trade + ' = $' + amt.toLocaleString());
+}
+
+function renderBudgetPanel() {
+  // Calculate spend per trade from data object
+  const spendByTrade = {};
+  getArray().forEach(r => {
+    const t = r.trade || r.category || 'Unassigned';
+    const cost = parseFloat(r.unit_cost || 0) * parseFloat(r.qty || 1);
+    spendByTrade[t] = (spendByTrade[t] || 0) + cost;
+  });
+
+  // Get all trades (union of tradeOptions + keys that have spend)
+  const defaultTrades=['Civil','Electrical','Mechanical','Structural','Plumbing','Instrumentation'];
+  const loadedTrades=(typeof tradeOptions!=='undefined'&&tradeOptions.length>0)?tradeOptions:defaultTrades;
+  const allTrades=Array.from(new Set([...loadedTrades,...Object.keys(spendByTrade)]));
+  if(allTrades.length===0)allTrades.push(...defaultTrades);
+
+  let totalBudget = 0, totalSpent = 0;
+  const rows = allTrades.map(trade => {
+    const key = trade.replace(/\s+/g,'_');
+    const budget = parseFloat(budgets[key] || 0);
+    const spent = spendByTrade[trade] || 0;
+    const remaining = budget - spent;
+    const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+    const over = spent > budget && budget > 0;
+    totalBudget += budget;
+    totalSpent += spent;
+
+    const barColor = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warn)' : 'var(--success)';
+
+    return `<tr class="${over ? 'over-budget' : ''}">
+      <td><strong>${trade}</strong>${over ? ' <span style="color:var(--danger);font-size:10px;font-weight:700">⚠ OVER</span>' : ''}</td>
+      <td>$${budget.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+      <td style="color:${spent>0?'var(--warn)':'var(--muted)'}">$${spent.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+      <td style="color:${over?'var(--danger)':remaining>0?'var(--success)':'var(--muted)'}">$${remaining.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+      <td>
+        <div class="prog-bar">
+          <div class="prog-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(pct)}%</div>
+      </td>
+      <td>
+        <div style="display:flex;gap:5px;align-items:center">
+          <input class="budg-inp" id="binp-${key}" type="number" min="0" step="1000" placeholder="0" value="${budget||''}">
+          <button class="budg-save" onclick="saveBudget('${trade}')">Save</button>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  const body = document.getElementById('budgetBody');
+  if (body) body.innerHTML = rows.join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No trades yet. Use the form below to add a budget, or go to ⚙️ Settings to add trades first.</td></tr>';
+  // Populate the quick-add trade select
+  const bts = document.getElementById('budgetTradeSelect');
+  if (bts) {
+    const curVal = bts.value;
+    bts.innerHTML = '<option value="">— Select Trade —</option>' +
+      allTrades.map(t => `<option value="${t}">${t}</option>`).join('');
+    if (curVal) bts.value = curVal;
+  }
+
+  // Update summary cards
+  const remaining = totalBudget - totalSpent;
+  const pctUsed = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+  const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+
+  const el = id => document.getElementById(id);
+  if(el('bTotalBudget')) el('bTotalBudget').textContent = fmt(totalBudget);
+  if(el('bTotalSpent')) el('bTotalSpent').textContent = fmt(totalSpent);
+  if(el('bRemaining')) el('bRemaining').textContent = (remaining < 0 ? '-' : '') + fmt(remaining);
+  if(el('bPctUsed')) el('bPctUsed').textContent = pctUsed + '%';
+
+  // Color remaining card red if over budget
+  const remCard = el('bRemainingCard');
+  if(remCard) {
+    remCard.className = 'bcard ' + (remaining < 0 ? 'over' : 'remaining');
+  }
+}
+
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js">
 // ── Constants ──────────────────────────────────────────────
 const CFG_KEY='ejde_firebase_cfg';
 const CATS=['ADV','APO','BOX','BRA','BUS','CBT','CLO','COM','CON','CST','CTR','DEP',
@@ -1427,12 +1428,4 @@ function sendOverdueDigest(){
   });
   if(overdue.length===0){showToast('No overdue items!');return;}
   const lines=overdue.map(d=>`  - REQ #${d.req_num||d._key} | ${d.desc1||'N/A'} | Qty: ${d.qty||''} | REQ Date: ${d.required_date||''} | Status: ${d.status||''}`).join('\n');
-  const body=`Hi Team,\n\nThe following ${overdue.length} item(s) are overdue as of ${new Date().toLocaleDateString()}:\n\n${lines}\n\nPlease update the tracker with current status.\n\nThank you`;
-  const subject=`Overdue Materials Alert - ${overdue.length} item(s) past REQ date`;
-  window.location.href=`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-function showToast(msg){toast(msg);}
-
-</script>
-</body>
-</html>
+  const body=`Hi Team,\n\nThe following ${overdue.length} item(s) ar
